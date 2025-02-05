@@ -24,7 +24,8 @@ from nonebot.params import CommandArg, RegexGroup
 from nonebot.adapters.onebot.v11 import (
     Bot,
     Event,
-    GROUP,
+    GROUP_ADMIN,
+    GROUP_OWNER,
     Message,
     MessageSegment,
     GroupMessageEvent
@@ -64,8 +65,8 @@ es_cash_info = on_command("es突发礼包信息", priority=5, block=True)
 es_tier_info = on_command("es礼品信息", priority=5, block=True)
 es_potential_info = on_command("es潜能信息", priority=5, block=True)
 es_avatar_frame = on_command("es头像框", priority=5, block=True)
-es_check_update = on_command("es检查更新", priority=5, permission=SUPERUSER, block=True)
-es_switch_source = on_command("es数据源切换", priority=5, permission=SUPERUSER, block=True)
+es_check_update = on_command("es检查更新", priority=5, permission=(SUPERUSER | GROUP_ADMIN | GROUP_OWNER), block=True)
+es_switch_source = on_command("es数据源切换", priority=5, permission=(SUPERUSER | GROUP_ADMIN | GROUP_OWNER), block=True)
 
 # 传送门类型
 GATE_TYPES = {
@@ -4289,7 +4290,6 @@ async def handle_switch_source(event: GroupMessageEvent):
         global alias_map, json_data
         alias_map = load_aliases()
         json_data = load_json_data()
-        await es_switch_source.finish(f"已切换到{args}数据源并重新加载数据")
     except Exception as e:
         import traceback
         error_location = traceback.extract_tb(e.__traceback__)[-1]
@@ -4300,3 +4300,6 @@ async def handle_switch_source(event: GroupMessageEvent):
             f"函数名称: {error_location.name}\n"
             f"问题代码: {error_location.line}\n"
         )
+        await es_switch_source.finish(f"切换数据源时发生错误: {str(e)}")
+    
+    await es_switch_source.finish(f"已切换到{args}数据源")
