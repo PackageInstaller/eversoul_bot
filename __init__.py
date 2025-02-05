@@ -114,6 +114,16 @@ effect_mapping = {
     "加速": 14111
 }
 
+# 添加数据源配置文件路径
+DATA_SOURCE_CONFIG = Path(__file__).parent / "data_source_config.yaml"
+
+# 默认配置
+DEFAULT_CONFIG = {
+    "type": "live",
+    "json_path": str(Path("/home/rikka/Eversoul/live_jsons")),
+    "hero_alias_file": str(Path(__file__).parent / "live_hero_aliases.yaml")
+}
+
 # 全局变量来存储当前数据源配置
 current_data_source = {
     "type": "live",  # 默认使用live
@@ -728,6 +738,38 @@ def get_item_name(data, item_no):
                     if string["no"] == name_sno:
                         return string.get("zh_tw", "未知物品")
     return item_name
+
+
+def load_data_source_config():
+    """加载数据源配置"""
+    try:
+        if DATA_SOURCE_CONFIG.exists():
+            with open(DATA_SOURCE_CONFIG, "r", encoding="utf-8") as f:
+                config = yaml.safe_load(f)
+                # 确保配置完整
+                if all(key in config for key in DEFAULT_CONFIG):
+                    # 转换路径字符串为Path对象
+                    config["json_path"] = Path(config["json_path"])
+                    config["hero_alias_file"] = Path(config["hero_alias_file"])
+                    return config
+    except Exception as e:
+        logger.error(f"加载数据源配置出错: {e}")
+    
+    # 如果出错或配置不存在，使用默认配置
+    return DEFAULT_CONFIG.copy()
+
+def save_data_source_config(config):
+    """保存数据源配置"""
+    try:
+        # 转换Path对象为字符串以便序列化
+        save_config = config.copy()
+        save_config["json_path"] = str(config["json_path"])
+        save_config["hero_alias_file"] = str(config["hero_alias_file"])
+        
+        with open(DATA_SOURCE_CONFIG, "w", encoding="utf-8") as f:
+            yaml.dump(save_config, f, allow_unicode=True)
+    except Exception as e:
+        logger.error(f"保存数据源配置出错: {e}")
 
 
 def get_cash_item_info(data: dict, item_type: str, gate_info: dict) -> list:
@@ -4218,15 +4260,16 @@ async def handle_es_check_update(event: GroupMessageEvent):
         await es_check_update.finish(f"更新检查执行失败: {str(e)}")
 
 
+# 初始化全局配置
+current_data_source = load_data_source_config()
 
 @es_switch_source.handle()
 async def handle_switch_source(event: GroupMessageEvent):
     # 获取参数
     msg = str(event.get_message()).strip()
-    # 移除命令前缀"es数据源切换"并清理空白
     args = msg.replace("es数据源切换", "").strip().lower()
     
-    if not args:  # 检查是否有参数
+    if not args:
         await es_switch_source.finish("请指定数据源类型：live 或 review")
     
     if args not in ["live", "review"]:
@@ -4237,6 +4280,9 @@ async def handle_switch_source(event: GroupMessageEvent):
     current_data_source["type"] = args
     current_data_source["json_path"] = Path(f"/home/rikka/Eversoul/{args}_jsons")
     current_data_source["hero_alias_file"] = Path(__file__).parent / f"{args}_hero_aliases.yaml"
+    
+    # 保存配置到文件
+    save_data_source_config(current_data_source)
     
     # 重新加载数据
     try:
