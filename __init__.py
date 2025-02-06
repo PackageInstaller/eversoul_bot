@@ -230,6 +230,7 @@ def load_json_data():
         "town_lost_item": "TownLostItem.json", # 遗失物品
         "tower": "Tower.json", # 起源塔
         "contents_buff": "ContentsBuff.json", # buff数值内容
+        "world_raid_partner_buff": "WorldRaidPartnerBuff.json", # 支援伙伴buff
     }
     
     data = {}
@@ -1010,13 +1011,14 @@ def process_skill_description(data, description):
     processed_desc = re.sub(r'<\s*(\d+)\.(VALUE|DURATION)\s*>', replace_value, description)
     return processed_desc
 
-def get_skill_info(data, skill_no, is_support=False):
+def get_skill_info(data, skill_no, is_support=False, hero_data=None):
     """获取技能信息
     
     Args:
         data: JSON数据字典
         skill_no: 技能编号
         is_support: 是否为支援技能
+        hero_data: 英雄数据（用于获取辅助伙伴技能信息）
     
     Returns:
         tuple: (技能名称, 技能描述列表, 技能图标信息, 是否为支援技能)
@@ -1064,6 +1066,8 @@ def get_skill_info(data, skill_no, is_support=False):
             # 找出最高等级的技能数据
             max_level_skill = max(skill_data_list, key=lambda x: x.get("level", 0))
             
+            # 获取主要伙伴技能描述
+                        # 获取主要伙伴技能描述
             for string in data["string_skill"]["json"]:
                 if string["no"] == max_level_skill["tooltip_sno"]:
                     desc_tw = string.get("zh_tw", "")
@@ -1080,8 +1084,71 @@ def get_skill_info(data, skill_no, is_support=False):
                     desc_cn = process_skill_description(data, desc_cn)
                     desc_kr = process_skill_description(data, desc_kr)
                     desc_en = process_skill_description(data, desc_en)
-                    skill_descriptions.append((desc_tw, desc_cn, desc_kr, desc_en))
+                    skill_descriptions.append((
+                        f"主要夥伴：{desc_tw}",  # 添加主要伙伴标记
+                        f"主要伙伴：{desc_cn}",
+                        f"주 파트너 효과：{desc_kr}",
+                        f"Main Partner Effect：{desc_en}"
+                    ))
                     break
+            
+            # 如果提供了hero_data，获取辅助伙伴技能描述
+            if hero_data:
+                sub_class_sno = hero_data.get("sub_class_sno")
+                max_grade_sno = hero_data.get("max_grade_sno")
+                
+                if sub_class_sno and max_grade_sno:
+                    # 在WorldRaidPartnerBuff中查找匹配的buff
+                    for buff in data["world_raid_partner_buff"]["json"]:
+                        if (buff["sub_class"] == sub_class_sno and 
+                            buff["grade"] == max_grade_sno):
+                            buff_sno = buff.get("buff_sno")
+                            buff_no = buff.get("buff_no")
+                            
+                            if buff_sno and buff_no:
+                                # 获取buff数值
+                                buff_values = []  # 改用列表存储数值
+                                for content_buff in data["contents_buff"]["json"]:
+                                    if content_buff.get("no") == buff_no:
+                                        # 遍历所有属性，按顺序收集非零数值
+                                        for key, value in content_buff.items():
+                                            if (isinstance(value, (int, float)) and 
+                                                value != 0 and 
+                                                key != "no"):  # 排除 no 字段
+                                                # 根据数值大小判断是否为百分比
+                                                if value <= 50:  # 小于等于50的按百分比处理
+                                                    buff_values.append(int(value * 100))
+                                                else:  # 大于50的按整数处理
+                                                    buff_values.append(int(value))
+                                
+                                # 在StringUI中查找描述文本
+                                for string in data["string_ui"]["json"]:
+                                    if string["no"] == buff_sno:
+                                        desc_tw = string.get("zh_tw", "")
+                                        desc_cn = string.get("zh_cn", "")
+                                        desc_kr = string.get("kr", "")
+                                        desc_en = string.get("en", "")
+                                        
+                                        # 正则表达式找出所有占位符
+                                        placeholders = re.findall(r'{([^}]+)}', desc_tw)
+                                        
+                                        # 按顺序替换所有占位符
+                                        for i, value in enumerate(buff_values):
+                                            if i < len(placeholders):
+                                                placeholder = f"{{{placeholders[i]}}}"
+                                                desc_tw = desc_tw.replace(placeholder, str(value))
+                                                desc_cn = desc_cn.replace(placeholder, str(value))
+                                                desc_kr = desc_kr.replace(placeholder, str(value))
+                                                desc_en = desc_en.replace(placeholder, str(value))
+                                        
+                                        skill_descriptions.append((
+                                            f"輔助夥伴：{desc_tw}",
+                                            f"辅助伙伴：{desc_cn}",
+                                            f"서포터 효과：{desc_kr}",
+                                            f"Support Effect：{desc_en}"
+                                        ))
+                                        break
+                            break
         else:
             # 非支援技能，获取所有等级的技能描述
             for skill_data in skill_data_list:
@@ -2462,7 +2529,7 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
                         skill_type_zh_tw, skill_type_zh_cn, skill_type_kr, skill_type_en = get_skill_type(data, skill["type"])
                         # 判断是否为支援技能
                         is_support = (skill_key == "support_skill_no")
-                        skill_name_zh_tw, skill_name_zh_cn, skill_name_kr, skill_name_en, skill_descriptions, skill_icon_info, is_support = get_skill_info(data, skill_no, is_support)
+                        skill_name_zh_tw, skill_name_zh_cn, skill_name_kr, skill_name_en, skill_descriptions, skill_icon_info, is_support = get_skill_info(data, skill_no, is_support, hero_data)
                         skill_types.append((skill_type_zh_tw, skill_type_zh_cn, skill_type_kr, skill_type_en, skill_name_zh_tw, skill_name_zh_cn, skill_name_kr, skill_name_en, skill_descriptions, skill_icon_info, is_support))
                         break
         
@@ -2486,13 +2553,36 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
                         f.write(colored_icon)
                     skill_text.append(MessageSegment.image(f"file:///{temp_icon_path}"))
             
-            skill_text.append(f"【{skill_type_zh_tw}】{skill_name_zh_tw}")
-            for i, (desc_tw, desc_cn, desc_kr, desc_en) in enumerate(skill_descriptions):
-                # 如果是支援技能，直接显示满级
-                if is_support:
-                    skill_text.append(f"满级：{desc_tw}")
-                else:
-                    skill_text.append(f"等级{i+1}：{desc_tw}")
+                        # 如果是支援技能，使用新的格式
+            if is_support:
+                # 分类存储主要和辅助效果
+                main_effects = []
+                support_effects = []
+                
+                # 对效果进行分类
+                for desc_tw, desc_cn, desc_kr, desc_en in skill_descriptions:
+                    if "主要伙伴" in desc_cn:  # 改为检查繁体中文描述
+                        main_effects.append(desc_tw.replace("主要夥伴：", ""))
+                    elif "辅助伙伴" in desc_cn:  # 改为检查繁体中文描述
+                        support_effects.append(desc_tw.replace("輔助夥伴：", ""))
+                
+                # 如果有主要效果，添加主要效果部分
+                if main_effects:
+                    skill_text.append("▼ 主要伙伴效果")
+                    skill_text.append(f"【{skill_type_zh_tw}】{skill_name_zh_tw}")
+                    skill_text.extend(main_effects)
+                
+                # 如果有辅助效果，添加辅助效果部分
+                if support_effects:
+                    skill_text.append("▼ 辅助伙伴效果")
+                    if not main_effects:  # 如果之前没有显示过技能名称，在这里显示
+                        skill_text.append(f"【{skill_type_zh_tw}】{skill_name_zh_tw}")
+                    skill_text.extend(support_effects)
+            else:
+                # 非支援技能保持原有格式
+                skill_text.append(f"【{skill_type_zh_tw}】{skill_name_zh_tw}")
+                for i, (desc_tw, desc_cn, desc_kr, desc_en) in enumerate(skill_descriptions):
+                    skill_text.append(f"等级{i+1}：{desc_tw}\n")
             
             messages.append("\n".join(str(x) for x in skill_text))
 
@@ -2590,7 +2680,6 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
                 signature_msg_tw.append(MessageSegment.image(f"file:///{signature_img_path}"))
             
             signature_info_tw = f"""【{signature_name_zh_tw}】
-簡介：
 {signature_desc_tw}
 
 {max_level}級屬性：
