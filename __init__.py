@@ -4240,16 +4240,36 @@ async def check_update_background(group_id: int, event: GroupMessageEvent):
             )
             return
         
-        # 使用回复形式发送结果
-        await bot.send_group_msg(
-            group_id=group_id,
-            message=MessageSegment.reply(initial_msg["message_id"]) + clean_output
-        )
+        # 将输出按行分割并生成转发消息
+        forward_msgs = []
+        for line in clean_output.split('\n'):
+            if line.strip():  # 跳过空行
+                forward_msgs.append({
+                    "type": "node",
+                    "data": {
+                        "name": "EverSoul Update Check",
+                        "uin": bot.self_id,
+                        "content": line
+                    }
+                })
+        
+        # 发送合并转发消息
+        if isinstance(event, GroupMessageEvent):
+            await bot.call_api(
+                "send_group_forward_msg",
+                group_id=event.group_id,
+                messages=forward_msgs
+            )
+        else:
+            await bot.call_api(
+                "send_private_forward_msg",
+                user_id=event.user_id,
+                messages=forward_msgs
+            )
 
     except Exception as e:
         error_msg = f"执行更新检查时发生错误:\n错误类型: {type(e).__name__}\n错误信息: {str(e)}"
         await bot.send_group_msg(group_id=group_id, message=error_msg)
-        import traceback
 
 @es_check_update.handle()
 async def handle_es_check_update(event: GroupMessageEvent):
