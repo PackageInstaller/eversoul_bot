@@ -4240,18 +4240,15 @@ async def check_update_background(group_id: int, event: GroupMessageEvent):
             )
             return
         
-        # 将输出按行分割并生成转发消息
-        forward_msgs = []
-        for line in clean_output.split('\n'):
-            if line.strip():  # 跳过空行
-                forward_msgs.append({
-                    "type": "node",
-                    "data": {
-                        "name": "EverSoul Update Check",
-                        "uin": bot.self_id,
-                        "content": line
-                    }
-                })
+        # 生成单条转发消息
+        forward_msgs = [{
+            "type": "node",
+            "data": {
+                "name": "EverSoul Update Check",
+                "uin": bot.self_id,
+                "content": clean_output
+            }
+        }]
         
         # 发送合并转发消息
         if isinstance(event, GroupMessageEvent):
