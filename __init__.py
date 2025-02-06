@@ -947,6 +947,58 @@ def get_affection_cgs(data, hero_id):
     
     return images
 
+
+def get_skill_value(data, value_id, value_type="VALUE"):
+    """处理技能数值
+    
+    Args:
+        data: JSON数据字典
+        value_id: 技能ID
+        value_type: 值类型（"VALUE" 或 "DURATION"）
+    """
+    # 如果是DURATION类型，需要从SkillCode和SkillBuff中获取
+    if value_type == "DURATION":
+        # 先检查SkillCode中的value
+        for code in data["skill_code"]["json"]:
+            if code["no"] == value_id:
+                value_without_decimal = int(code["value"]) if code["value"].is_integer() else code["value"]
+                # 在SkillBuff中查找对应的duration
+                for buff in data["skill_buff"]["json"]:
+                    if buff["no"] == value_without_decimal:
+                        return str(int(abs(buff["duration"])))  # 返回duration值
+        
+        # 如果在SkillCode中没找到，直接查找SkillBuff
+        for buff in data["skill_buff"]["json"]:
+            if buff["no"] == value_id:
+                return str(int(abs(buff["duration"])))  # 取绝对值
+        return "???"
+
+    # 从SkillCode.json中查找数值
+    for code in data["skill_code"]["json"]:
+        if code["no"] == value_id:
+            # 检查value是否为整数形式（去掉.0后）的数字
+            value_without_decimal = int(code["value"]) if code["value"].is_integer() else code["value"]
+            
+            # 如果value（去掉.0后）等于另一个no，则从SkillBuff中查找这个no的值
+            if isinstance(value_without_decimal, int):
+                for buff in data["skill_buff"]["json"]:
+                    if buff["no"] == value_without_decimal:
+                        value = abs(buff["value"])  # 取绝对值
+                        if value > 50:  # 5000%
+                            return str(int(value))
+                        else:
+                            return f"{value*100:.1f}%"
+            
+            # 如果不是引用其他no，则直接使用code中的value
+            value = abs(code["value"])  # 取绝对值
+            # 修改判断条件：当值小于等于5时按百分比处理
+            if value <= 50:
+                return f"{value*100:.1f}%"
+            # 大于10的值按整数处理
+            return str(int(value))
+    return "???"
+
+
 def process_skill_description(data, description):
     """处理技能描述中的数值标签"""
     def replace_value(match):
@@ -964,9 +1016,10 @@ def get_skill_info(data, skill_no, is_support=False):
     Args:
         data: JSON数据字典
         skill_no: 技能编号
+        is_support: 是否为支援技能
     
     Returns:
-        tuple: (技能名称, 技能描述列表)
+        tuple: (技能名称, 技能描述列表, 技能图标信息, 是否为支援技能)
     """
     skill_data_list = []
     skill_name_zh_tw = ""
@@ -984,13 +1037,11 @@ def get_skill_info(data, skill_no, is_support=False):
             if not skill_icon_info:
                 icon_prefab = skill.get("icon_prefab")
                 if icon_prefab == 14:
-                    # 特殊处理 icon_prefab 为 14 的情况
                     skill_icon_info = {
                         "icon": "Icon_Sub_Change",
                         "color": "#e168eb"
                     }
                 elif icon_prefab:
-                    # 正常情况下根据 icon_prefab 查找图标信息
                     for icon_data in data["skill_icon"]["json"]:
                         if icon_data["no"] == icon_prefab:
                             skill_icon_info = {
@@ -1009,17 +1060,17 @@ def get_skill_info(data, skill_no, is_support=False):
                 skill_name_en = string.get("en", "")
                 break
         
-        # 如果是支援技能且有足够的数据，只取第七个
-        if is_support and len(skill_data_list) >= 7:
-            skill_data = skill_data_list[6]  # 获取第七个数据（索引为6）
+        if is_support:
+            # 找出最高等级的技能数据
+            max_level_skill = max(skill_data_list, key=lambda x: x.get("level", 0))
             
             for string in data["string_skill"]["json"]:
-                if string["no"] == skill_data["tooltip_sno"]:
+                if string["no"] == max_level_skill["tooltip_sno"]:
                     desc_tw = string.get("zh_tw", "")
                     desc_cn = string.get("zh_cn", "")
                     desc_kr = string.get("kr", "")
                     desc_en = string.get("en", "")
-                    # 先清理颜色标签
+                    # 清理颜色标签
                     desc_tw = clean_color_tags(desc_tw)
                     desc_cn = clean_color_tags(desc_cn)
                     desc_kr = clean_color_tags(desc_kr)
@@ -1040,7 +1091,7 @@ def get_skill_info(data, skill_no, is_support=False):
                         desc_cn = string.get("zh_cn", "")
                         desc_kr = string.get("kr", "")
                         desc_en = string.get("en", "")
-                        # 先清理颜色标签
+                        # 清理颜色标签
                         desc_tw = clean_color_tags(desc_tw)
                         desc_cn = clean_color_tags(desc_cn)
                         desc_kr = clean_color_tags(desc_kr)
@@ -1403,55 +1454,7 @@ async def generate_potential_html(data: dict) -> str:
         logger.error(f"生成潜能HTML时发生错误: {e}")
         raise
 
-def get_skill_value(data, value_id, value_type="VALUE"):
-    """处理技能数值
-    
-    Args:
-        data: JSON数据字典
-        value_id: 技能ID
-        value_type: 值类型（"VALUE" 或 "DURATION"）
-    """
-    # 如果是DURATION类型，需要从SkillCode和SkillBuff中获取
-    if value_type == "DURATION":
-        # 先检查SkillCode中的value
-        for code in data["skill_code"]["json"]:
-            if code["no"] == value_id:
-                value_without_decimal = int(code["value"]) if code["value"].is_integer() else code["value"]
-                # 在SkillBuff中查找对应的duration
-                for buff in data["skill_buff"]["json"]:
-                    if buff["no"] == value_without_decimal:
-                        return str(int(abs(buff["duration"])))  # 返回duration值
-        
-        # 如果在SkillCode中没找到，直接查找SkillBuff
-        for buff in data["skill_buff"]["json"]:
-            if buff["no"] == value_id:
-                return str(int(abs(buff["duration"])))  # 取绝对值
-        return "???"
 
-    # 从SkillCode.json中查找数值
-    for code in data["skill_code"]["json"]:
-        if code["no"] == value_id:
-            # 检查value是否为整数形式（去掉.0后）的数字
-            value_without_decimal = int(code["value"]) if code["value"].is_integer() else code["value"]
-            
-            # 如果value（去掉.0后）等于另一个no，则从SkillBuff中查找这个no的值
-            if isinstance(value_without_decimal, int):
-                for buff in data["skill_buff"]["json"]:
-                    if buff["no"] == value_without_decimal:
-                        value = abs(buff["value"])  # 取绝对值
-                        if value > 5:  # 500%
-                            return str(int(value))
-                        else:
-                            return f"{value*100:.1f}%"
-            
-            # 如果不是引用其他no，则直接使用code中的value
-            value = abs(code["value"])  # 取绝对值
-            # 修改判断条件：当值小于等于5时按百分比处理
-            if value <= 5:
-                return f"{value*100:.1f}%"
-            # 大于5的值按整数处理
-            return str(int(value))
-    return "???"
 
 def get_signature_stats(data, level_group):
     """获取遗物最高等级总属性
