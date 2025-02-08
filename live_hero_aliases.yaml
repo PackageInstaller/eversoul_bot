@@ -303,7 +303,7 @@ names:
     zh_cn_name: 伊迪丝
     kr_name: 이디스
     en_name: Edith
-    aliases: [伊迪斯]
+    aliases: [伊迪斯, eds]
     hero_id: 3060
   - zh_tw_name: 妮可
     zh_cn_name: 妮可

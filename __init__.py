@@ -1152,6 +1152,7 @@ def get_skill_info(data, skill_no, is_support=False, hero_data=None):
         else:
             # 非支援技能，获取所有等级的技能描述
             for skill_data in skill_data_list:
+                hero_level = skill_data.get("hero_level", 1)  # 获取技能解锁等级
                 for string in data["string_skill"]["json"]:
                     if string["no"] == skill_data["tooltip_sno"]:
                         desc_tw = string.get("zh_tw", "")
@@ -1168,7 +1169,7 @@ def get_skill_info(data, skill_no, is_support=False, hero_data=None):
                         desc_cn = process_skill_description(data, desc_cn)
                         desc_kr = process_skill_description(data, desc_kr)
                         desc_en = process_skill_description(data, desc_en)
-                        skill_descriptions.append((desc_tw, desc_cn, desc_kr, desc_en))
+                        skill_descriptions.append((desc_tw, desc_cn, desc_kr, desc_en, hero_level))
                         break
     
     return skill_name_zh_tw, skill_name_zh_cn, skill_name_kr, skill_name_en, skill_descriptions, skill_icon_info, is_support
@@ -2581,8 +2582,9 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
             else:
                 # 非支援技能保持原有格式
                 skill_text.append(f"【{skill_type_zh_tw}】{skill_name_zh_tw}")
-                for i, (desc_tw, desc_cn, desc_kr, desc_en) in enumerate(skill_descriptions):
-                    skill_text.append(f"等级{i+1}：{desc_tw}\n")
+                for i, (desc_tw, desc_cn, desc_kr, desc_en, hero_level) in enumerate(skill_descriptions):
+                    unlock_text = f"（等级{hero_level}解锁）" if hero_level >= 1 else ""
+                    skill_text.append(f"等级{i+1}：{desc_tw}{unlock_text}\n")
             
             messages.append("\n".join(str(x) for x in skill_text))
 
