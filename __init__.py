@@ -985,17 +985,29 @@ def get_skill_value(data, value_id, value_type="VALUE"):
                 for buff in data["skill_buff"]["json"]:
                     if buff["no"] == value_without_decimal:
                         value = abs(buff["value"])  # 取绝对值
-                        if value > 50:  # 5000%
+                        if value >= 50:  # 5000%
                             return str(int(value))
                         else:
-                            return f"{value*100:.1f}%"
+                            # 检查百分比值是否为整数
+                            percent_value = value * 100
+                            if percent_value.is_integer():
+                                return f"{int(percent_value)}%"
+                            return f"{percent_value:.1f}%"
             
             # 如果不是引用其他no，则直接使用code中的value
             value = abs(code["value"])  # 取绝对值
-            # 修改判断条件：当值小于等于5时按百分比处理
+            # 当值小于等于50时按百分比处理
             if value <= 50:
-                return f"{value*100:.1f}%"
-            # 大于10的值按整数处理
+                # 检查百分比值是否为整数
+                percent_value = value * 100
+                if percent_value.is_integer():
+                    return f"{int(percent_value)}%"
+                # 如果不是整数，检查小数点后是否为0
+                formatted_value = f"{percent_value:.1f}"
+                if formatted_value.endswith('.0'):
+                    return f"{int(percent_value)}%"
+                return f"{formatted_value}%"
+            # 大于50的值按整数处理
             return str(int(value))
     return "???"
 
@@ -1561,7 +1573,14 @@ def get_signature_stats(data, level_group):
             if stat_key in ["hit", "dodge"]:
                 formatted_stats.append(f"{stat_name}：{int(value)}")
             else:
-                formatted_stats.append(f"{stat_name}：{value*100:.1f}%")
+                # 处理百分比值，使用round避免浮点数精度问题
+                percent_value = round(value * 100, 1)
+                formatted_value = f"{percent_value:.1f}"
+                # 检查是否为整数（包括像29.0这样的值）
+                if formatted_value.endswith('.0'):
+                    formatted_stats.append(f"{stat_name}：{int(percent_value)}%")
+                else:
+                    formatted_stats.append(f"{stat_name}：{formatted_value}%")
     
     return formatted_stats, max_level
 
@@ -1666,7 +1685,6 @@ def get_signature_info(data, hero_id):
                         skill_descriptions.append((desc_tw, desc_cn, desc_kr, desc_en))  # 将四种语言的描述作为元组存储
                         break
         
-    # 修改返回值，确保始终返回6个值
     # 修改返回值，添加图标路径
     if signature_data:
         level_group = signature_data.get("level_group")
@@ -2515,7 +2533,7 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
 防御力：{int(hero_data.get('defence', 0))} (+{int(hero_data.get('inc_defence', 0))}/级)
 生命值：{int(hero_data.get('max_hp', 0))} (+{int(hero_data.get('inc_max_hp', 0))}/级)
 暴击率：{hero_data.get('critical_rate', 0)*100:.1f}% (+{hero_data.get('inc_critical_rate', 0)*100:.3f}%/级)
-暴击伤害：{hero_data.get('critical_power', 0)*100:.1f}% (+{hero_data.get('inc_critical_power', 0)*100:.3f}%/级)"""
+暴击威力：{hero_data.get('critical_power', 0)*100:.1f}% (+{hero_data.get('inc_critical_power', 0)*100:.3f}%/级)"""
         messages.append(stats_info)
         
         # 技能信息
