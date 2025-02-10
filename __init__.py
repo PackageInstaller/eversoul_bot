@@ -493,7 +493,37 @@ def get_keyword_points(data: dict, keyword_type: str) -> list:
             pass
     return [20, 40, 60]  # 默认值
 
-def get_character_images(data, hero_id, hero_name_tw, hero_name_cn):
+
+def get_character_portrait(data, hero_id, hero_name_en):
+    """获取角色头像
+    
+    Args:
+        data: JSON数据字典
+        hero_id: 角色ID
+        hero_name_en: 角色英文名称
+    Returns:
+        Path: 头像图片路径或None
+    """
+    # 头像路径
+    portrait_path = Path(__file__).parent / "hero" / f"{hero_name_en}_512.png"
+    if portrait_path.exists():
+        return portrait_path
+    
+    # 如果直接用英文名找不到，尝试从item_costume获取portrait_path
+    for costume in data["item_costume"]["json"]:
+        if costume.get("hero_no") == hero_id:
+            portrait_path = costume.get("portrait_path", "")
+            if portrait_path:
+                # 构建头像路径
+                portrait_file = Path(__file__).parent / "hero" / f"{portrait_path}_512.png"
+                if portrait_file.exists():
+                    return portrait_file
+                break
+    
+    return None
+
+
+def get_character_illustration(data, hero_id, hero_name_tw, hero_name_cn):
     """获取角色立绘
     
     Args:
@@ -2300,6 +2330,10 @@ async def handle_hero_info(bot: Bot, event: Event, args: Message = CommandArg())
             nickname_tw, nickname_cn, nickname_kr, nickname_en = get_string_char(data, nick_name_sno)
             
         # 繁体中文版本
+        basic_info_msg = []
+        portrait_path = get_character_portrait(data, hero_id, hero_name_en)
+        if portrait_path:
+            basic_info_msg.append(MessageSegment.image(f"file:///{str(portrait_path.absolute())}"))
         basic_info_tw = f"""繁中角色信息：
 {nickname_tw if nickname_tw else "無稱號"}
 {hero_name_tw}
@@ -2319,7 +2353,8 @@ async def handle_hero_info(bot: Bot, event: Event, args: Message = CommandArg())
 CV：{get_string_char(data, hero_desc.get("cv_sno", 0))[0] if hero_desc else "???"}
 CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc else "???"}
 {date_info}"""
-        messages.append(basic_info_tw)
+        basic_info_msg.append(basic_info_tw)
+        messages.append("\n".join(str(x) for x in basic_info_msg))
 
         # 简体中文版本
 #         basic_info_cn = f"""简中角色信息：
@@ -2392,7 +2427,7 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
         # 添加立绘
         for char in data["string_char"]["json"]:
             if char["no"] == hero_data["name_sno"]:
-                images = get_character_images(data, hero_id, hero_name_tw, hero_name_cn)
+                images = get_character_illustration(data, hero_id, hero_name_tw, hero_name_cn)
                 if images:
                     image_msg = []
                     image_msg.append("下面是全部立绘：")
