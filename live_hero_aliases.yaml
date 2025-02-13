@@ -33,7 +33,7 @@ names:
     zh_cn_name: 萝丝
     kr_name: 로제
     en_name: Rose
-    aliases: []
+    aliases: [小萝丝]
     hero_id: 120
   - zh_tw_name: 夏琳
     zh_cn_name: 夏琳
@@ -159,7 +159,7 @@ names:
     zh_cn_name: ''
     kr_name: 로제(홍염)
     en_name: Rose (Prominence)
-    aliases: []
+    aliases: [大萝丝]
     hero_id: 1150
   - zh_tw_name: 未知
     zh_cn_name: ''
