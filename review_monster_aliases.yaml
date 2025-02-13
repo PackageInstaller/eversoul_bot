@@ -3059,34 +3059,34 @@ names:
     en_name: Ricecake Maker Soonie
     aliases: []
     hero_id: 32088
-  - zh_tw_name: 美味年糕條
-    zh_cn_name: ''
-    kr_name: 맛 좋은 찹쌀떡
-    en_name: Tasty Rice Cake Stick
-    aliases: []
-    hero_id: 32089
   - zh_tw_name: 美味糯米糕
     zh_cn_name: ''
-    kr_name: 맛 좋은 가래떡
+    kr_name: 맛 좋은 찹쌀떡
     en_name: Tasty Sticky Rice Cake
     aliases: []
-    hero_id: 32090
-  - zh_tw_name: 美味年糕條1
+    hero_id: 32089
+  - zh_tw_name: 美味年糕條
     zh_cn_name: ''
-    kr_name: 맛 좋은 찹쌀떡
+    kr_name: 맛 좋은 가래떡
     en_name: Tasty Rice Cake Stick
     aliases: []
+    hero_id: 32090
+  - zh_tw_name: 美味糯米糕1
+    zh_cn_name: ''
+    kr_name: 맛 좋은 찹쌀떡
+    en_name: Tasty Sticky Rice Cake
+    aliases: []
     hero_id: 32091
-  - zh_tw_name: ''
+  - zh_tw_name: 心理世界的蘿絲
     zh_cn_name: ''
     kr_name: 심상세계의 로제
-    en_name: ''
+    en_name: Rose(Imaginary World)
     aliases: []
     hero_id: 32092
-  - zh_tw_name: '1'
+  - zh_tw_name: 心理世界的蘿絲1
     zh_cn_name: ''
     kr_name: 심상세계의 로제
-    en_name: ''
+    en_name: Rose(Imaginary World)
     aliases: []
     hero_id: 32093
   - zh_tw_name: 起司
@@ -3311,13 +3311,13 @@ names:
     en_name: Vivienne
     aliases: []
     hero_id: 66104
-  - zh_tw_name: '2'
+  - zh_tw_name: 蘿絲（紅焰）
     zh_cn_name: ''
     kr_name: 로제(홍염)
     en_name: Rose (Prominence)
     aliases: []
     hero_id: 66105
-  - zh_tw_name: '3'
+  - zh_tw_name: 蘿絲（紅焰）1
     zh_cn_name: ''
     kr_name: 로제(홍염)
     en_name: Rose (Prominence)

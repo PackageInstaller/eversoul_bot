@@ -2685,26 +2685,6 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
             signature_msg_tw.append(signature_info_tw)
             messages.append("\n".join(str(x) for x in signature_msg_tw))
         
-
-            # 遗物信息 - 韩语版本
-            signature_msg_kr = []
-            signature_msg_kr.append("【한국어】유물 설명：")
-            # 检查图片是否存在并添加
-            if os.path.exists(signature_img_path):
-                signature_msg_kr.append(MessageSegment.image(f"file:///{signature_img_path}"))
-            
-            signature_info_kr = f"""【{signature_name_kr}】
-소개：
-{signature_desc_kr}
-
-{max_level}레벨 속성：
-{chr(10).join(signature_stats)}
-
-유물 스킬【{signature_title_kr}】：
-""" + "\n".join(f"레벨 {i+1}：{desc_kr}" for i, (desc_tw, desc_cn, desc_kr, desc_en) in enumerate(signature_descriptions))
-            signature_msg_kr.append(signature_info_kr)
-            messages.append("\n".join(str(x) for x in signature_msg_kr))
-        
         # 构建转发消息
         forward_msgs = []
         for msg in messages:
