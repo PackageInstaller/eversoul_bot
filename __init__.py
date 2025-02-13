@@ -438,43 +438,49 @@ def get_keyword_location(data: dict, keyword_get_details: int) -> str:
 
 def get_lost_item_info(data: dict, hero_no: int, keyword_type: int, keyword_get_details: int) -> str:
     """获取遗失物品信息"""
-    logger.debug(f"处理遗失物品: hero_no={hero_no}, keyword_type={keyword_type}, details={keyword_get_details}")
-    
-    # 在TownLostItem.json中查找对应条目
-    lost_item = next((item for item in data["town_lost_item"]["json"] 
-                     if item.get("hero_no") == hero_no and 
-                     item.get("keyword_type") == keyword_type), None)
-    
-    if not lost_item:
+    try:
+        logger.debug(f"处理遗失物品: hero_no={hero_no}, keyword_type={keyword_type}, details={keyword_get_details}")
+        
+        # 在TownLostItem.json中查找对应条目
+        lost_item = next((item for item in data["town_lost_item"]["json"] 
+                         if item.get("hero_no") == hero_no and 
+                         item.get("keyword_type") == keyword_type), None)
+        
+        if not lost_item:
+            return ""
+            
+        quest_type = lost_item.get("quest_type")
+        logger.debug(f"遗失物品类型: {quest_type}")
+        
+        if quest_type == 3:  # 特定场景遗失
+            # 获取地点信息
+            if group_trip := lost_item.get("group_trip"):
+                # 在Talk.json中查找对应对话
+                talks = [t for t in data["talk"]["json"] if t.get("group_no") == group_trip]
+                # 找到最后一个带choice的对话
+                choice_talk = next((t for t in reversed(talks) if t.get("ui_type") == "choice"), None)
+                if choice_talk and choice_talk.get("no"):  # 确保choice_talk存在且有no字段
+                    location = next((s.get("zh_tw", "") for s in data["string_talk"]["json"] 
+                                   if s.get("no") == choice_talk.get("no")), "")
+                    if location:
+                        return f"需要{location}"
+        else:  # 领地遗失或击杀魔物
+            if group_end := lost_item.get("group_end"):
+                talks = [t for t in data["talk"]["json"] if t.get("group_no") == group_end]
+                choice_talk = next((t for t in reversed(talks) if t.get("ui_type") == "choice"), None)
+                if choice_talk and choice_talk.get("no"):  # 确保choice_talk存在且有no字段
+                    action = next((s.get("zh_tw", "") for s in data["string_talk"]["json"] 
+                                 if s.get("no") == choice_talk.get("no")), "")
+                    if quest_type == 4 and keyword_get_details == 1:
+                        return f"需要击杀魔物"
+                    elif action:
+                        return f"需要{action}"
+        
         return ""
         
-    quest_type = lost_item.get("quest_type")
-    logger.debug(f"遗失物品类型: {quest_type}")
-    
-    if quest_type == 3:  # 特定场景遗失
-        # 获取地点信息
-        if group_trip := lost_item.get("group_trip"):
-            # 在Talk.json中查找对应对话
-            talks = [t for t in data["talk"]["json"] if t.get("group_no") == group_trip]
-            # 找到最后一个带choice的对话
-            choice_talk = next((t for t in reversed(talks) if t.get("ui_type") == "choice"), None)
-            if choice_talk:
-                location = next((s.get("zh_tw", "") for s in data["string_talk"]["json"] 
-                               if s["no"] == choice_talk.get("no")), "")
-                return f"需要{location}"
-    else:  # 领地遗失或击杀魔物
-        if group_end := lost_item.get("group_end"):
-            talks = [t for t in data["talk"]["json"] if t.get("group_no") == group_end]
-            choice_talk = next((t for t in reversed(talks) if t.get("ui_type") == "choice"), None)
-            if choice_talk:
-                action = next((s.get("zh_tw", "") for s in data["string_talk"]["json"] 
-                             if s["no"] == choice_talk.get("no")), "")
-                if quest_type == 4 and keyword_get_details == 1:
-                    return f"需要击杀魔物"
-                else:
-                    return f"需要{action}"
-    
-    return ""
+    except Exception as e:
+        logger.error(f"处理遗失物品信息时发生错误: {e}, hero_no={hero_no}, keyword_type={keyword_type}, details={keyword_get_details}")
+        return ""
 
 def get_keyword_points(data: dict, keyword_type: str) -> list:
     """获取关键字好感度点数"""
@@ -1129,7 +1135,7 @@ def get_skill_info(data, skill_no, is_support=False, hero_data=None):
                     skill_descriptions.append((
                         f"主要夥伴：{desc_tw}",  # 添加主要伙伴标记
                         f"主要伙伴：{desc_cn}",
-                        f"주 파트너 효과：{desc_kr}",
+                        f"메인 파트너：{desc_kr}",
                         f"Main Partner Effect：{desc_en}"
                     ))
                     break
@@ -1186,7 +1192,7 @@ def get_skill_info(data, skill_no, is_support=False, hero_data=None):
                                         skill_descriptions.append((
                                             f"輔助夥伴：{desc_tw}",
                                             f"辅助伙伴：{desc_cn}",
-                                            f"서포터 효과：{desc_kr}",
+                                            f"서브 파트너：{desc_kr}",
                                             f"Support Effect：{desc_en}"
                                         ))
                                         break
@@ -1799,103 +1805,114 @@ def get_hero_name_by_id(data, hero_id):
 
 def get_story_info(data, hero_id):
     """获取角色好感故事信息"""
-    # 将hero_id转换为act格式
-    act = hero_id
-    
-    # 收集所有相关的故事信息
-    story_episodes = []
-    ending_episodes = []
-    
-    # 从Story_Info中获取所有相关剧情
-    for story in data["story_info"]["json"]:
-        if ("act" in story and story["act"] == act and 
-            "bundle_path" in story and "Story/Love" in story["bundle_path"]):
-            if story["episode"] in [8, 9, 10]:
-                ending_episodes.append(story)
-            else:
-                story_episodes.append(story)
-    
-    # 如果没有8-10中的任意一个，则无好感故事
-    if not ending_episodes:
-        return False, [], {}
-    
-    # 获取结局信息
-    endings = {}
-    for episode in ending_episodes:
-        if "ending_affinity" in episode:
-            if episode["episode"] == 8:
-                endings["bad"] = episode["ending_affinity"]
-            elif episode["episode"] == 9:
-                endings["normal"] = episode["ending_affinity"]
-            elif episode["episode"] == 10:
-                endings["good"] = episode["ending_affinity"]
-    
-    # 如果没有找到任何结局信息，返回False
-    if not endings:
-        return False, [], {}
-    
-    # 收集每个章节的信息
-    episode_info = []
-    for episode in story_episodes:
-        # 获取选项和好感度
-        choices = {}  # 使用字典来按position_type分组
+    try:
+        # 将hero_id转换为act格式
+        act = hero_id
         
-        # 先找出所有有好感度的选项的talk_index
-        valid_talk_indexes = set()
-        for talk in data["talk"]["json"]:
-            if talk["group_no"] == episode["talk_group"] and "affinity_point" in talk:
-                valid_talk_indexes.add(talk.get("talk_index", 0))
+        # 收集所有相关的故事信息
+        story_episodes = []
+        ending_episodes = []
         
-        # 收集所有相关选项（包括有好感度和对应talk_index的无好感度选项）
-        for talk in data["talk"]["json"]:
-            if (talk["group_no"] == episode["talk_group"] and 
-                talk.get("talk_index", 0) in valid_talk_indexes):
-                choice_text_zh_tw = ""
-                choice_text_zh_cn = ""
-                choice_text_kr = ""
-                choice_text_en = ""
+        # 从Story_Info中获取所有相关剧情
+        for story in data["story_info"]["json"]:
+            if ("act" in story and story["act"] == act and 
+                "bundle_path" in story and "Story/Love" in story["bundle_path"]):
+                if story["episode"] in [8, 9, 10]:
+                    ending_episodes.append(story)
+                else:
+                    story_episodes.append(story)
+        
+        # 如果没有8-10中的任意一个，则无好感故事
+        if not ending_episodes:
+            return False, [], {}
+        
+        # 获取结局信息
+        endings = {}
+        for episode in ending_episodes:
+            if "ending_affinity" in episode:
+                if episode["episode"] == 8:
+                    endings["bad"] = episode["ending_affinity"]
+                elif episode["episode"] == 9:
+                    endings["normal"] = episode["ending_affinity"]
+                elif episode["episode"] == 10:
+                    endings["good"] = episode["ending_affinity"]
+        
+        # 如果没有找到任何结局信息，返回False
+        if not endings:
+            return False, [], {}
+        
+        # 收集每个章节的信息
+        episode_info = []
+        for episode in story_episodes:
+            # 获取选项和好感度
+            choices = {}  # 使用字典来按position_type分组
+            
+            # 先找出所有有好感度的选项的talk_index
+            valid_talk_indexes = set()
+            for talk in data["talk"]["json"]:
+                if talk.get("group_no") == episode.get("talk_group") and "affinity_point" in talk:
+                    valid_talk_indexes.add(talk.get("talk_index", 0))
+            
+            # 收集所有相关选项（包括有好感度和对应talk_index的无好感度选项）
+            for talk in data["talk"]["json"]:
+                if (talk.get("group_no") == episode.get("talk_group") and 
+                    talk.get("talk_index", 0) in valid_talk_indexes):
+                    choice_text_zh_tw = ""
+                    choice_text_zh_cn = ""
+                    choice_text_kr = ""
+                    choice_text_en = ""
+                    
+                    # 安全获取对话文本
+                    talk_no = talk.get("no")
+                    if talk_no is not None:
+                        for string in data["string_talk"]["json"]:
+                            if string.get("no") == talk_no:
+                                choice_text_zh_tw = string.get("zh_tw", "")
+                                choice_text_zh_cn = string.get("zh_cn", "")
+                                choice_text_kr = string.get("kr", "")
+                                choice_text_en = string.get("en", "")
+                                break
+                    
+                    # 按position_type分组存储选项
+                    position_type = talk.get("position_type", 0)
+                    if position_type not in choices:
+                        choices[position_type] = []
+                    choices[position_type].append({
+                        "text": choice_text_zh_tw if choice_text_zh_tw != "" else choice_text_kr,
+                        "affinity": talk.get("affinity_point", 0),
+                        "choice_group": talk.get("choice_group", 0),
+                        "no": talk.get("no"),
+                        "talk_index": talk.get("talk_index", 0),
+                        "group_no": talk.get("group_no")
+                    })
+            
+            # 获取章节标题
+            episode_title_zh_tw = ""
+            episode_title_zh_cn = ""
+            episode_title_kr = ""
+            episode_title_en = ""
+            episode_name_sno = episode.get("episode_name_sno")
+            if episode_name_sno is not None:
                 for string in data["string_talk"]["json"]:
-                    if string["no"] == talk["no"]:
-                        choice_text_zh_tw = string.get("zh_tw", "")
-                        choice_text_zh_cn = string.get("zh_cn", "")
-                        choice_text_kr = string.get("kr", "")
-                        choice_text_en = string.get("en", "")
+                    if string.get("no") == episode_name_sno:
+                        episode_title_zh_tw = string.get("zh_tw", "")
+                        episode_title_zh_cn = string.get("zh_cn", "")
+                        episode_title_kr = string.get("kr", "")
+                        episode_title_en = string.get("en", "")
                         break
-                
-                # 按position_type分组存储选项
-                position_type = talk.get("position_type", 0)
-                if position_type not in choices:
-                    choices[position_type] = []
-                choices[position_type].append({
-                    "text": choice_text_zh_tw if choice_text_zh_tw != "" else choice_text_kr,
-                    "affinity": talk.get("affinity_point", 0),
-                    "choice_group": talk.get("choice_group", 0),
-                    "no": talk["no"],
-                    "talk_index": talk.get("talk_index", 0),
-                    "group_no": talk["group_no"]
-                })
+            
+            # 添加章节信息
+            episode_info.append({
+                "episode": episode.get("episode", 0),
+                "title": episode_title_zh_tw if episode_title_zh_tw != "" else episode_title_kr,
+                "choices": choices
+            })
         
-        # 获取章节标题
-        episode_title_zh_tw = ""
-        episode_title_zh_cn = ""
-        episode_title_kr = ""
-        episode_title_en = ""
-        for string in data["string_talk"]["json"]:
-            if string["no"] == episode["episode_name_sno"]:
-                episode_title_zh_tw = string.get("zh_tw", "")
-                episode_title_zh_cn = string.get("zh_cn", "")
-                episode_title_kr = string.get("kr", "")
-                episode_title_en = string.get("en", "")
-                break
+        return True, episode_info, endings
         
-        # 添加章节信息
-        episode_info.append({
-            "episode": episode["episode"],
-            "title": episode_title_zh_tw if episode_title_zh_tw != "" else episode_title_kr,
-            "choices": choices
-        })
-    
-    return True, episode_info, endings
+    except Exception as e:
+        logger.error(f"获取好感故事信息时发生错误: {e}, hero_id={hero_id}")
+        return False, [], {}
 
 def format_story_info(episode_info, endings):
     """格式化好感故事信息"""
@@ -2641,83 +2658,6 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
             
             messages.append("\n".join(str(x) for x in skill_text))
 
-        # # 简体中文版本
-        # messages.append("【简中】技能描述：")
-        # for skill_type_zh_tw, skill_type_zh_cn, skill_type_kr, skill_type_en, skill_name_zh_tw, skill_name_zh_cn, skill_name_kr, skill_name_en, skill_descriptions, skill_icon_info, is_support in skill_types:
-        #     skill_text = []
-            
-        #     # 如果有技能图标，处理并添加
-        #     if skill_icon_info:
-        #         icon_path = os.path.join(os.path.dirname(__file__), "icon", f"{skill_icon_info['icon']}.png")
-        #         if os.path.exists(icon_path):
-        #             colored_icon = apply_color_to_icon(icon_path, skill_icon_info['color'])
-        #             temp_icon_path = os.path.join(os.path.dirname(__file__), "temp", f"temp_{skill_icon_info['icon']}.png")
-        #             os.makedirs(os.path.dirname(temp_icon_path), exist_ok=True)
-        #             with open(temp_icon_path, 'wb') as f:
-        #                 f.write(colored_icon)
-        #             skill_text.append(MessageSegment.image(f"file:///{temp_icon_path}"))
-            
-        #     skill_text.append(f"【{skill_type_zh_cn}】{skill_name_zh_cn}")
-        #     for i, (desc_tw, desc_cn, desc_kr, desc_en) in enumerate(skill_descriptions):
-        #         # 如果是支援技能，直接显示满级
-        #         if is_support:
-        #             skill_text.append(f"满级：{desc_cn}")
-        #         else:
-        #             skill_text.append(f"等级{i+1}：{desc_cn}")
-                
-        #     messages.append("\n".join(str(x) for x in skill_text))
-
-        # 韩语版本
-        # messages.append("【한국어】스킬 설명：")
-        # for skill_type_zh_tw, skill_type_zh_cn, skill_type_kr, skill_type_en, skill_name_zh_tw, skill_name_zh_cn, skill_name_kr, skill_name_en, skill_descriptions, skill_icon_info, is_support in skill_types:
-        #     skill_text = []
-            
-        #     # 如果有技能图标，处理并添加
-        #     if skill_icon_info:
-        #         icon_path = os.path.join(os.path.dirname(__file__), "icon", f"{skill_icon_info['icon']}.png")
-        #         if os.path.exists(icon_path):
-        #             colored_icon = apply_color_to_icon(icon_path, skill_icon_info['color'])
-        #             temp_icon_path = os.path.join(os.path.dirname(__file__), "temp", f"temp_{skill_icon_info['icon']}.png")
-        #             os.makedirs(os.path.dirname(temp_icon_path), exist_ok=True)
-        #             with open(temp_icon_path, 'wb') as f:
-        #                 f.write(colored_icon)
-        #             skill_text.append(MessageSegment.image(f"file:///{temp_icon_path}"))
-
-        #     skill_text.append(f"【{skill_type_kr}】{skill_name_kr}")
-        #     for i, (desc_tw, desc_cn, desc_kr, desc_en) in enumerate(skill_descriptions):
-        #         # 如果是支援技能，直接显示满级
-        #         if is_support:
-        #             skill_text.append(f"최대 레벨：{desc_kr}")
-        #         else:
-        #             skill_text.append(f"레벨 {i+1}：{desc_kr}")
-                
-        #     messages.append("\n".join(str(x) for x in skill_text))
-
-        # 英语版本
-        # messages.append("【English】Skill Description：")
-        # for skill_type_zh_tw, skill_type_zh_cn, skill_type_kr, skill_type_en, skill_name_zh_tw, skill_name_zh_cn, skill_name_kr, skill_name_en, skill_descriptions, skill_icon_info, is_support in skill_types:
-        #     skill_text = []
-            
-        #     # 如果有技能图标，处理并添加
-        #     if skill_icon_info:
-        #         icon_path = os.path.join(os.path.dirname(__file__), "icon", f"{skill_icon_info['icon']}.png")
-        #         if os.path.exists(icon_path):
-        #             colored_icon = apply_color_to_icon(icon_path, skill_icon_info['color'])
-        #             temp_icon_path = os.path.join(os.path.dirname(__file__), "temp", f"temp_{skill_icon_info['icon']}.png")
-        #             os.makedirs(os.path.dirname(temp_icon_path), exist_ok=True)
-        #             with open(temp_icon_path, 'wb') as f:
-        #                 f.write(colored_icon)
-        #             skill_text.append(MessageSegment.image(f"file:///{temp_icon_path}"))
-
-        #     skill_text.append(f"【{skill_type_en}】{skill_name_en}")
-        #     for i, (desc_tw, desc_cn, desc_kr, desc_en) in enumerate(skill_descriptions):
-        #         # 如果是支援技能，直接显示满级
-        #         if is_support:
-        #             skill_text.append(f"Maximum level：{desc_en}")
-        #         else:
-        #             skill_text.append(f"Level {i+1}：{desc_en}")
-                
-        #     messages.append("\n".join(str(x) for x in skill_text))
         
         # 获取并添加遗物信息
         signature_name_zh_tw, signature_name_zh_cn, signature_name_kr, signature_name_en, signature_title_zh_tw, signature_title_zh_cn, signature_title_kr, signature_title_en, \
@@ -2744,63 +2684,26 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
 """ + "\n".join(f"等級{i+1}：{desc_tw}" for i, (desc_tw, desc_cn, desc_kr, desc_en) in enumerate(signature_descriptions))
             signature_msg_tw.append(signature_info_tw)
             messages.append("\n".join(str(x) for x in signature_msg_tw))
-            
-#             # 遗物信息 - 简中版本
-#             signature_msg_cn = []
-#             signature_msg_cn.append("【简中】遗物描述：")
-#             # 检查图片是否存在并添加
-#             if os.path.exists(signature_img_path):
-#                 signature_msg_cn.append(MessageSegment.image(f"file:///{signature_img_path}"))
-            
-#             signature_info_cn = f"""【{signature_name_zh_cn}】
-# 简介：
-# {signature_desc_cn}
-
-# {max_level}级属性：
-# {chr(10).join(signature_stats)}
-
-# 遺物技能【{signature_title_zh_cn}】：
-# """ + "\n".join(f"等級{i+1}：{desc_cn}" for i, (desc_tw, desc_cn, desc_kr, desc_en) in enumerate(signature_descriptions))
-#             signature_msg_cn.append(signature_info_cn)
-#             messages.append("\n".join(str(x) for x in signature_msg_cn))
+        
 
             # 遗物信息 - 韩语版本
-#             signature_msg_kr = []
-#             signature_msg_kr.append("【한국어】유물 설명：")
-#             # 检查图片是否存在并添加
-#             if os.path.exists(signature_img_path):
-#                 signature_msg_kr.append(MessageSegment.image(f"file:///{signature_img_path}"))
+            signature_msg_kr = []
+            signature_msg_kr.append("【한국어】유물 설명：")
+            # 检查图片是否存在并添加
+            if os.path.exists(signature_img_path):
+                signature_msg_kr.append(MessageSegment.image(f"file:///{signature_img_path}"))
             
-#             signature_info_kr = f"""【{signature_name_kr}】
-# 소개：
-# {signature_desc_kr}
+            signature_info_kr = f"""【{signature_name_kr}】
+소개：
+{signature_desc_kr}
 
-# {max_level}레벨 속성：
-# {chr(10).join(signature_stats)}
+{max_level}레벨 속성：
+{chr(10).join(signature_stats)}
 
-# 유물 스킬【{signature_title_kr}】：
-# """ + "\n".join(f"레벨 {i+1}：{desc_kr}" for i, (desc_tw, desc_cn, desc_kr, desc_en) in enumerate(signature_descriptions))
-#             signature_msg_kr.append(signature_info_kr)
-#             messages.append("\n".join(str(x) for x in signature_msg_kr))
-
-#         # 遗物信息 - 英语版本
-#         signature_msg_en = []
-#         signature_msg_en.append("【English】Signature Description：")
-#         # 检查图片是否存在并添加
-#         if os.path.exists(signature_img_path):
-#             signature_msg_en.append(MessageSegment.image(f"file:///{signature_img_path}"))
-            
-#             signature_info_en = f"""【{signature_name_en}】
-# Description：
-# {signature_desc_en}
-
-# {max_level} Level Attribute：
-# {chr(10).join(signature_stats)}
-
-# Signature Skill【{signature_title_en}】：
-# """ + "\n".join(f"Level {i+1}：{desc_en}" for i, (desc_tw, desc_cn, desc_kr, desc_en) in enumerate(signature_descriptions))
-#             signature_msg_en.append(signature_info_en)
-#             messages.append("\n".join(str(x) for x in signature_msg_en))
+유물 스킬【{signature_title_kr}】：
+""" + "\n".join(f"레벨 {i+1}：{desc_kr}" for i, (desc_tw, desc_cn, desc_kr, desc_en) in enumerate(signature_descriptions))
+            signature_msg_kr.append(signature_info_kr)
+            messages.append("\n".join(str(x) for x in signature_msg_kr))
         
         # 构建转发消息
         forward_msgs = []

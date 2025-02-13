@@ -3077,6 +3077,18 @@ names:
     en_name: Tasty Rice Cake Stick
     aliases: []
     hero_id: 32091
+  - zh_tw_name: ''
+    zh_cn_name: ''
+    kr_name: 심상세계의 로제
+    en_name: ''
+    aliases: []
+    hero_id: 32092
+  - zh_tw_name: '1'
+    zh_cn_name: ''
+    kr_name: 심상세계의 로제
+    en_name: ''
+    aliases: []
+    hero_id: 32093
   - zh_tw_name: 起司
     zh_cn_name: 起司
     kr_name: 치즈
@@ -3287,21 +3299,63 @@ names:
     en_name: Aira
     aliases: []
     hero_id: 66004
+  - zh_tw_name: 凱瑟琳11
+    zh_cn_name: 凯瑟琳
+    kr_name: 캐서린
+    en_name: Catherine
+    aliases: []
+    hero_id: 66005
   - zh_tw_name: 薇薇安10
     zh_cn_name: 薇薇安
     kr_name: 비비안
     en_name: Vivienne
     aliases: []
     hero_id: 66104
+  - zh_tw_name: '2'
+    zh_cn_name: ''
+    kr_name: 로제(홍염)
+    en_name: Rose (Prominence)
+    aliases: []
+    hero_id: 66105
+  - zh_tw_name: '3'
+    zh_cn_name: ''
+    kr_name: 로제(홍염)
+    en_name: Rose (Prominence)
+    aliases: []
+    hero_id: 66115
   - zh_tw_name: 薇薇安11
     zh_cn_name: 薇薇安
     kr_name: 비비안
     en_name: Vivienne
     aliases: []
     hero_id: 66204
+  - zh_tw_name: 克萊兒10
+    zh_cn_name: 克莱儿
+    kr_name: 클레르
+    en_name: Claire
+    aliases: []
+    hero_id: 66205
+  - zh_tw_name: 克萊兒11
+    zh_cn_name: 克莱儿
+    kr_name: 클레르
+    en_name: Claire
+    aliases: []
+    hero_id: 66215
   - zh_tw_name: 薇薇安12
     zh_cn_name: 薇薇安
     kr_name: 비비안
     en_name: Vivienne
     aliases: []
     hero_id: 66304
+  - zh_tw_name: 阿德里安18
+    zh_cn_name: 阿德里安
+    kr_name: 아드리안
+    en_name: Adrianne
+    aliases: []
+    hero_id: 66305
+  - zh_tw_name: 阿德里安19
+    zh_cn_name: 阿德里安
+    kr_name: 아드리안
+    en_name: Adrianne
+    aliases: []
+    hero_id: 66315

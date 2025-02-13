@@ -155,10 +155,10 @@ names:
     en_name: Eileen
     aliases: []
     hero_id: 1140
-  - zh_tw_name: 未知
+  - zh_tw_name: ''
     zh_cn_name: ''
-    kr_name: ''
-    en_name: ''
+    kr_name: 로제(홍염)
+    en_name: Rose (Prominence)
     aliases: []
     hero_id: 1150
   - zh_tw_name: 未知
