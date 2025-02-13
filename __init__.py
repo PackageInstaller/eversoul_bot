@@ -232,6 +232,8 @@ def load_json_data():
         "tower": "Tower.json", # 起源塔
         "contents_buff": "ContentsBuff.json", # buff数值内容
         "world_raid_partner_buff": "WorldRaidPartnerBuff.json", # 支援伙伴buff
+        "arbeit_choice": "ArbeitChoice.json", # 专属物品任务选择
+        "arbeit_list": "ArbeitList.json"   # 专属物品任务列表
     }
     
     data = {}
@@ -791,7 +793,7 @@ def get_town_object_info(data: dict, hero_id: int) -> list:
         hero_id: 角色ID
     
     Returns:
-        list: 物品信息列表 [(物品名称, 物品品质, 物品类型, 物品描述, 图片路径), ...]
+        list: 物品信息列表 [(物品编号, 物品名称, 物品品质, 物品类型, 物品描述, 图片路径), ...]
     """
     try:
         objects_info = []
@@ -853,12 +855,106 @@ def get_town_object_info(data: dict, hero_id: int) -> list:
                                 if not os.path.exists(img_path):
                                     img_path = None
                             
-                            objects_info.append((name, grade, slot_type, desc, img_path))
+                            objects_info.append((obj_no, name, grade, slot_type, desc, img_path))
                         
         return objects_info
         
     except Exception as e:
         logger.error(f"获取专属领地物品信息时发生错误: {e}, hero_id={hero_id}")
+        return []
+    
+def get_town_object_tasks(data: dict, obj_no: int) -> list:
+    """获取专属领地物品可进行的任务信息
+    
+    Args:
+        data: 游戏数据字典
+        obj_no: 物品编号
+    
+    Returns:
+        list: 任务信息列表
+    """
+    try:
+        tasks_info = []
+        
+        # 特性名称映射
+        trait_names = {
+            "conversation": "口才",
+            "culture": "教养",
+            "courage": "胆量",
+            "knowledge": "知识",
+            "guts": "毅力",
+            "handicraft": "才艺"
+        }
+        
+        # 在ArbeitChoice中查找对应物品的任务
+        for choice in data["arbeit_choice"]["json"]:
+            if choice.get("objet_no") == obj_no:
+                arbeit_no = choice.get("arbeit_no")
+                if not arbeit_no:
+                    continue
+                
+                # 在ArbeitList中查找任务详情
+                for arbeit in data["arbeit_list"]["json"]:
+                    if arbeit.get("no") == arbeit_no:
+                        # 获取任务品质
+                        rarity = ""
+                        rarity_sno = arbeit.get("rarity")
+                        if rarity_sno:
+                            for string in data["string_system"]["json"]:
+                                if string.get("no") == rarity_sno:
+                                    rarity = string.get("zh_tw", "")
+                                    break
+                        
+                        # 获取任务名称
+                        name = ""
+                        name_sno = arbeit.get("name_sno")
+                        if name_sno:
+                            for string in data["string_town"]["json"]:
+                                if string.get("no") == name_sno:
+                                    name = string.get("zh_tw", "")
+                                    break
+                        
+                        # 获取所需时间
+                        time_hours = arbeit.get("time", 0) / 3600
+                        
+                        # 获取要求特性
+                        traits = []
+                        for trait, zh_name in trait_names.items():
+                            if stars := arbeit.get(trait):
+                                traits.append(f"{zh_name}{stars}★")
+                        
+                        # 获取奖励物品
+                        rewards = []
+                        for i in range(1, 3):  # 检查item1和item2
+                            item_no = arbeit.get(f"item{i}_no")
+                            item_amount = arbeit.get(f"item{i}_amount")
+                            if item_no and item_amount:
+                                # 查找物品名称
+                                for item in data["item"]["json"]:
+                                    if item.get("no") == item_no:
+                                        name_sno = item.get("name_sno")
+                                        if name_sno:
+                                            for string in data["string_item"]["json"]:
+                                                if string.get("no") == name_sno:
+                                                    item_name = string.get("zh_tw", "")
+                                                    rewards.append(f"{item_name} x{item_amount}")
+                                                    break
+                        
+                        # 添加任务信息
+                        tasks_info.append({
+                            "name": name,
+                            "rarity": rarity,
+                            "time": time_hours,
+                            "traits": traits,
+                            "stress": arbeit.get("stress", 0),
+                            "exp": arbeit.get("arbeit_exp", 0),
+                            "rewards": rewards
+                        })
+                        
+        return tasks_info
+        
+    except Exception as e:
+        logger.error(f"获取专属物品任务信息时发生错误: {e}, obj_no={obj_no}")
         return []
 
 
@@ -2595,7 +2691,7 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
         town_objects = get_town_object_info(data, hero_id)
         if town_objects:
             objects_msg = ["【专属领地物品】"]
-            for name, grade, slot_type, desc, img_path in town_objects:
+            for obj_no, name, grade, slot_type, desc, img_path in town_objects:
                 if img_path and os.path.exists(img_path):
                     objects_msg.append(MessageSegment.image(f"file:///{str(Path(img_path).absolute())}"))
                 objects_msg.append(f"名称：{name}")
@@ -2605,6 +2701,22 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
                     objects_msg.append(f"类型：{slot_type}")
                 if desc:
                     objects_msg.append(f"描述：{desc}")
+                
+                # 添加可进行的任务信息
+                tasks = get_town_object_tasks(data, obj_no)  # 需要从get_town_object_info传递obj_no
+                if tasks:
+                    objects_msg.append("\n可进行的任务：")
+                    for task in tasks:
+                        objects_msg.append(f"▼ {task['name']}（{task['rarity']}）")
+                        objects_msg.append(f"所需时间：{task['time']}小时")
+                        if task['traits']:
+                            objects_msg.append(f"要求特性：{' '.join(task['traits'])}")
+                        objects_msg.append(f"疲劳度：{task['stress']}")
+                        objects_msg.append(f"打工经验：{task['exp']}")
+                        if task['rewards']:
+                            objects_msg.append("奖励：")
+                            objects_msg.extend(f"・{reward}" for reward in task['rewards'])
+                
                 objects_msg.append("")  # 添加空行分隔不同物品
             messages.append("\n".join(str(x) for x in objects_msg))
 
