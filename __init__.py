@@ -2705,7 +2705,7 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
                 # 添加可进行的任务信息
                 tasks = get_town_object_tasks(data, obj_no)  # 需要从get_town_object_info传递obj_no
                 if tasks:
-                    objects_msg.append("\n可进行的任务：")
+                    objects_msg.append("\n可进行的打工：")
                     for task in tasks:
                         objects_msg.append(f"▼ {task['name']}（{task['rarity']}）")
                         objects_msg.append(f"所需时间：{task['time']}小时")
