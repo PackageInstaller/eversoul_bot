@@ -2351,7 +2351,7 @@ async def handle_hero_info(bot: Bot, event: Event, args: Message = CommandArg())
         portrait_path = get_character_portrait(data, hero_id, hero_name_en)
         if portrait_path:
             basic_info_msg.append(MessageSegment.image(f"file:///{str(portrait_path.absolute())}"))
-        basic_info_tw = f"""繁中角色信息：
+        basic_info_tw = f"""
 {nickname_tw if nickname_tw else "無稱號"}
 {hero_name_tw}
 類型：{race_tw} {hero_class_tw}
@@ -2373,74 +2373,6 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
         basic_info_msg.append(basic_info_tw)
         messages.append("\n".join(str(x) for x in basic_info_msg))
 
-        # 简体中文版本
-#         basic_info_cn = f"""简中角色信息：
-# {nickname_cn if nickname_cn else "无称号"}
-# {hero_name_cn}
-# 类型：{race_cn} {hero_class_cn}
-# 攻击方式：{sub_class_cn}
-# 属性：{stat_cn}
-# 品质：{grade_cn}
-# 隶属：{get_string_char(data, hero_desc.get("union_sno", 0))[1] if hero_desc else "???"}
-# 身高：{hero_desc.get("height", "???") if hero_desc else "???"}cm
-# 体重：{hero_desc.get("weight", "???") if hero_desc else "???"}kg
-# 生日：{str(hero_desc.get("birthday", "???"))[:1] if hero_desc else "???"}.{str(hero_desc.get("birthday", "???"))[1:] if hero_desc and hero_desc.get("birthday") else "???"}
-# 星座：{get_string_char(data, hero_desc.get("constellation_sno", 0))[1] if hero_desc else "???"}
-# 兴趣：{get_string_char(data, hero_desc.get("hobby_sno", 0))[1] if hero_desc else "???"}
-# 特殊专长：{get_string_char(data, hero_desc.get("speciality_sno", 0))[1] if hero_desc else "???"}
-# 喜欢的东西：{get_string_char(data, hero_desc.get("like_sno", 0))[1] if hero_desc else "???"}
-# 讨厌的东西：{get_string_char(data, hero_desc.get("dislike_sno", 0))[1] if hero_desc else "???"}
-# CV：{get_string_char(data, hero_desc.get("cv_sno", 0))[1] if hero_desc else "???"}
-# CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[1] if hero_desc else "???"}
-# {date_info}"""
-#         messages.append(basic_info_cn)
-
-
-        # 韩语版本
-#         basic_info_kr = f"""한글 문자 정보：
-# {nickname_kr if nickname_kr else "없는 칭호"}
-# {hero_name_kr}
-# 유형：{race_kr} {hero_class_kr}
-# 공격 방식：{sub_class_kr}
-# 속성：{stat_kr}
-# 품질：{grade_kr}
-# 소속：{get_string_char(data, hero_desc.get("union_sno", 0))[2] if hero_desc else "???"}
-# 신장：{hero_desc.get("height", "???") if hero_desc else "???"}cm
-# 체중：{hero_desc.get("weight", "???") if hero_desc else "???"}kg
-# 생일：{str(hero_desc.get("birthday", "???"))[:1] if hero_desc else "???"}.{str(hero_desc.get("birthday", "???"))[1:] if hero_desc and hero_desc.get("birthday") else "???"}
-# 별자리：{get_string_char(data, hero_desc.get("constellation_sno", 0))[2] if hero_desc else "???"}
-# 취미：{get_string_char(data, hero_desc.get("hobby_sno", 0))[2] if hero_desc else "???"}
-# 특기：{get_string_char(data, hero_desc.get("speciality_sno", 0))[2] if hero_desc else "???"}
-# 좋아하는 것：{get_string_char(data, hero_desc.get("like_sno", 0))[2] if hero_desc else "???"}
-# 싫어하는 것：{get_string_char(data, hero_desc.get("dislike_sno", 0))[2] if hero_desc else "???"}
-# CV：{get_string_char(data, hero_desc.get("cv_sno", 0))[2] if hero_desc else "???"}
-# CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[2] if hero_desc else "???"}
-# {date_info}"""
-#         messages.append(basic_info_kr)
-
-
-#         # 英语版本
-#         basic_info_en = f"""English character information：
-# {nickname_en if nickname_en else "No title"}
-# {hero_name_en}
-# Type：{race_en} {hero_class_en}
-# Attack method：{sub_class_en}
-# Attribute：{stat_en}
-# Quality：{grade_en}
-# Union：{get_string_char(data, hero_desc.get("union_sno", 0))[3] if hero_desc else "???"}
-# Height：{hero_desc.get("height", "???") if hero_desc else "???"}cm
-# Weight：{hero_desc.get("weight", "???") if hero_desc else "???"}kg
-# Birthday：{str(hero_desc.get("birthday", "???"))[:1] if hero_desc else "???"}.{str(hero_desc.get("birthday", "???"))[1:] if hero_desc and hero_desc.get("birthday") else "???"}
-# Constellation：{get_string_char(data, hero_desc.get("constellation_sno", 0))[3] if hero_desc else "???"}
-# Hobby：{get_string_char(data, hero_desc.get("hobby_sno", 0))[3] if hero_desc else "???"}
-# Speciality：{get_string_char(data, hero_desc.get("speciality_sno", 0))[3] if hero_desc else "???"}
-# Like：{get_string_char(data, hero_desc.get("like_sno", 0))[3] if hero_desc else "???"}
-# Dislike：{get_string_char(data, hero_desc.get("dislike_sno", 0))[3] if hero_desc else "???"}
-# CV：{get_string_char(data, hero_desc.get("cv_sno", 0))[3] if hero_desc else "???"}
-# CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[2] if hero_desc else "???"}
-# {date_info}"""
-#         messages.append(basic_info_en)
-
         # 添加立绘
         for char in data["string_char"]["json"]:
             if char["no"] == hero_data["name_sno"]:
@@ -2449,7 +2381,7 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
                     image_msg = []
                     image_msg.append("下面是全部立绘：")
                     for img_path, display_name_tw, display_name_cn, condition_tw in images:
-                        image_msg.append(f"{display_name_tw}\n{display_name_cn}\n解锁条件: {condition_tw}")
+                        image_msg.append(f"{display_name_tw}\n解锁条件: {condition_tw}")
                         image_msg.append(MessageSegment.image(f"file:///{str(img_path.absolute())}"))
                     messages.append("\n".join(str(x) for x in image_msg))
                 break
@@ -2471,10 +2403,6 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
                     introduction_kr = intro_kr
                 if intro_en:
                     introduction_en = intro_en
-        messages.append(f"繁中自我介绍：\n{introduction_tw}")
-        # messages.append(f"简中自我介绍：\n{introduction_cn}")
-        # messages.append(f"한국어로 자기소개：\n{introduction_kr}")
-        # messages.append(f"English self-introduction：\n{introduction_en}")
         # 添加好感故事信息
         has_story, episode_info, endings = get_story_info(data, hero_id)
         if has_story:
@@ -2532,7 +2460,7 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
         if bad_keywords or good_keywords:
             keyword_msgs = []
             if bad_keywords:
-                keyword_msgs.append("\n▼ 讨厌的话题")
+                keyword_msgs.append("▼ 讨厌的话题")
                 for keyword in bad_keywords:
                     msg = f"・{keyword['name']}（{keyword['grade']}，好感度 +{keyword['favor_point']}）"
                     # 添加地点信息
@@ -2604,7 +2532,6 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
                         skill_types.append((skill_type_zh_tw, skill_type_zh_cn, skill_type_kr, skill_type_en, skill_name_zh_tw, skill_name_zh_cn, skill_name_kr, skill_name_en, skill_descriptions, skill_icon_info, is_support))
                         break
         
-        messages.append("【繁中】技能描述：")
         for skill_type_zh_tw, skill_type_zh_cn, skill_type_kr, skill_type_en, skill_name_zh_tw, skill_name_zh_cn, skill_name_kr, skill_name_en, skill_descriptions, skill_icon_info, is_support in skill_types:
             skill_text = []
             # 如果有技能图标，处理并添加
@@ -2669,7 +2596,6 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
 
             # 遗物信息 - 繁中版本
             signature_msg_tw = []
-            signature_msg_tw.append("【繁中】遺物描述：")
             # 检查图片是否存在并添加
             if os.path.exists(signature_img_path):
                 signature_msg_tw.append(MessageSegment.image(f"file:///{signature_img_path}"))
