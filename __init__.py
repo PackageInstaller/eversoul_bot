@@ -226,6 +226,7 @@ def load_json_data():
         "trip_keyword": "TripKeyword.json", # 角色关键字
         "key_values": "KeyValues.json", # 关键字
         "town_location": "TownLocation.json", # 地点
+        "town_object": "TownObjet.json", # 专属领地物品
         "string_town": "StringTown.json", # 地点文本
         "town_lost_item": "TownLostItem.json", # 遗失物品
         "tower": "Tower.json", # 起源塔
@@ -334,6 +335,10 @@ def clean_color_tags(text):
     text = re.sub(r'</color\s*>', '', text, flags=re.IGNORECASE)
     text = re.sub(r'<COLOR\s*=#[A-Fa-f0-9]+\s*>', '', text, flags=re.IGNORECASE)
     text = re.sub(r'</COLOR\s*>', '', text, flags=re.IGNORECASE)
+    
+    # 处理 <color="#XXXXXX"> 格式（带引号的情况）
+    text = re.sub(r'<color="[#A-Fa-f0-9]+"\s*>', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'<COLOR="[#A-Fa-f0-9]+"\s*>', '', text, flags=re.IGNORECASE)
     
     return text
 
@@ -776,6 +781,85 @@ def get_item_name(data, item_no):
                     if string["no"] == name_sno:
                         return string.get("zh_tw", "未知物品")
     return item_name
+
+
+def get_town_object_info(data: dict, hero_id: int) -> list:
+    """获取角色专属领地物品信息
+    
+    Args:
+        data: 游戏数据字典
+        hero_id: 角色ID
+    
+    Returns:
+        list: 物品信息列表 [(物品名称, 物品品质, 物品类型, 物品描述, 图片路径), ...]
+    """
+    try:
+        objects_info = []
+        
+        # 在TownObjet.json中查找对应角色的物品
+        for obj in data["town_object"]["json"]:
+            if obj.get("hero") == hero_id:
+                obj_no = obj.get("no")
+                if not obj_no:
+                    continue
+                
+                # 获取prefab作为图片名称
+                prefab = obj.get("prefab", "")
+                    
+                # 在Item.json中查找对应物品信息
+                for item in data["item"]["json"]:
+                    if item.get("no") == obj_no:
+                        # 获取物品名称
+                        name = ""
+                        name_sno = item.get("name_sno")
+                        if name_sno:
+                            for string in data["string_item"]["json"]:
+                                if string.get("no") == name_sno:
+                                    name = string.get("zh_tw", "")
+                                    break
+                        
+                        # 获取物品品质
+                        grade = ""
+                        grade_sno = item.get("grade_sno")
+                        if grade_sno:
+                            for string in data["string_system"]["json"]:
+                                if string.get("no") == grade_sno:
+                                    grade = string.get("zh_tw", "")
+                                    break
+                        
+                        # 获取物品类型
+                        slot_type = ""
+                        slot_limit_sno = item.get("slot_limit_sno")
+                        if slot_limit_sno:
+                            for string in data["string_ui"]["json"]:
+                                if string.get("no") == slot_limit_sno:
+                                    slot_type = string.get("zh_tw", "")
+                                    break
+                        
+                        # 获取物品描述并清理颜色标签
+                        desc = ""
+                        desc_sno = item.get("desc_sno")
+                        if desc_sno:
+                            for string in data["string_item"]["json"]:
+                                if string.get("no") == desc_sno:
+                                    desc = clean_color_tags(string.get("zh_tw", ""))  # 使用clean_color_tags清理颜色标签
+                                    break
+                        
+                        if name:  # 只添加有名称的物品
+                            # 构建图片路径
+                            img_path = None
+                            if prefab:
+                                img_path = os.path.join(os.path.dirname(__file__), "town", f"{prefab}.png")
+                                if not os.path.exists(img_path):
+                                    img_path = None
+                            
+                            objects_info.append((name, grade, slot_type, desc, img_path))
+                        
+        return objects_info
+        
+    except Exception as e:
+        logger.error(f"获取专属领地物品信息时发生错误: {e}, hero_id={hero_id}")
+        return []
 
 
 def load_data_source_config():
@@ -2506,6 +2590,23 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
                 cg_msg.append(f"{cg_no}:")
                 cg_msg.append(MessageSegment.image(f"file:///{str(img_path.absolute())}"))
             messages.append("\n".join(str(x) for x in cg_msg))
+
+        # 添加专属领地物品信息
+        town_objects = get_town_object_info(data, hero_id)
+        if town_objects:
+            objects_msg = ["【专属领地物品】"]
+            for name, grade, slot_type, desc, img_path in town_objects:
+                if img_path and os.path.exists(img_path):
+                    objects_msg.append(MessageSegment.image(f"file:///{str(Path(img_path).absolute())}"))
+                objects_msg.append(f"名称：{name}")
+                if grade:
+                    objects_msg.append(f"品质：{grade}")
+                if slot_type:
+                    objects_msg.append(f"类型：{slot_type}")
+                if desc:
+                    objects_msg.append(f"描述：{desc}")
+                objects_msg.append("")  # 添加空行分隔不同物品
+            messages.append("\n".join(str(x) for x in objects_msg))
 
         # 属性信息
         stats_info = f"""基础属性：
