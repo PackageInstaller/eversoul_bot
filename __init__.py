@@ -588,6 +588,136 @@ def get_character_illustration(data, hero_id, hero_name_tw, hero_name_cn):
     return sorted(images)  # 排序以保持顺序一致
 
 
+def get_schedule_events(data, target_month, current_year, schedule_prefix, event_type):
+    """获取日程事件信息
+    
+    Args:
+        data: JSON数据字典
+        target_month: 目标月份
+        current_year: 当前年份
+        schedule_prefix: 日程key前缀(如"Calender_SingleRaid_")
+        event_type: 事件类型显示名称(如"恶灵讨伐")
+    
+    Returns:
+        list: 事件信息列表
+    """
+    events = []
+    now = datetime.now()
+    
+    for schedule in data["localization_schedule"]["json"]:
+        # 对于主要活动，使用完全匹配而不是startswith
+        if schedule_prefix.endswith("_Main"):
+            if schedule.get("schedule_key", "") != schedule_prefix:
+                continue
+        else:
+            if not schedule.get("schedule_key", "").startswith(schedule_prefix):
+                continue
+            
+        start_date = schedule.get("start_date")
+        end_date = schedule.get("end_date")
+        
+        if not (start_date and end_date):
+            continue
+            
+        start_date = datetime.strptime(start_date, "%Y-%m-%d %H:%M:%S")
+        end_date = datetime.strptime(end_date, "%Y-%m-%d %H:%M:%S")
+        
+        is_in_month = (
+            (start_date.year == current_year and start_date.month == target_month) or
+            (end_date.year == current_year and end_date.month == target_month)
+        ) and end_date >= now
+        
+        if not is_in_month:
+            continue
+            
+        schedule_key = schedule["schedule_key"]
+        event_name_tw = ""
+        
+        # 从EventCalender中获取name_sno
+        for event in data["event_calender"]["json"]:
+            if event.get("schedule_key") == schedule_key:
+                name_sno = event.get("name_sno")
+                if name_sno:
+                    # 从StringUI中获取名称
+                    for string in data["string_ui"]["json"]:
+                        if string["no"] == name_sno:
+                            event_name_tw = string.get("zh_tw", "").replace('\\r\\n', ' ').replace('\r\n', ' ').replace('\n', ' ')
+                            break
+                break
+        
+        if event_name_tw:
+            event_info = []
+            event_info.append(f"【{event_type}】")
+            event_info.append(f"名称：{event_name_tw}")
+            event_info.append(f"持续时间：{start_date.strftime('%Y-%m-%d')} 至 {end_date.strftime('%Y-%m-%d')}")
+            events.append("\n".join(event_info))
+    
+    return events
+
+
+def get_mail_events(data, target_month, current_year):
+    """获取邮箱事件信息"""
+    mail_events = []
+    now = datetime.now()
+    
+    for mail in data["message_mail"]["json"]:
+        start_date = mail.get("start_date")
+        end_date = mail.get("end_date")
+        
+        if not (start_date and end_date):
+            continue
+            
+        # 将日期字符串转换为datetime对象
+        start_date = datetime.strptime(start_date, "%Y-%m-%d")
+        end_date = datetime.strptime(end_date, "%Y-%m-%d")
+        
+        # 检查事件是否在目标月份内
+        is_in_month = (
+            (start_date.year == current_year and start_date.month == target_month) or
+            (end_date.year == current_year and end_date.month == target_month)
+        ) and end_date >= now
+        
+        if not is_in_month:
+            continue
+            
+        # 获取发送者名称
+        sender_name_tw = "未知"
+        if sender_sno := mail.get("sender_sno"):
+            sender_name_tw, sender_name_cn, sender_name_kr, sender_name_en = get_hero_name_by_id(data, sender_sno)
+        
+        # 获取标题和描述
+        title_tw, title_cn, title_kr, title_en = get_string_char(data, mail.get("title_sno", 0)) or "无标题"
+        desc_tw, desc_cn, desc_kr, desc_en = get_string_char(data, mail.get("desc_sno", 0)) or "无描述"
+        
+        # 处理奖励信息
+        rewards = []
+        for i in range(1, 5):
+            reward_no_key = f"reward_no{i}"
+            reward_amount_key = f"reward_amount{i}"
+            
+            if reward_no := mail.get(reward_no_key):
+                amount = mail.get(reward_amount_key, 0)
+                item_name = get_item_name(data, reward_no)
+                if item_name and amount:
+                    rewards.append(f"{item_name} x{amount}")
+        
+        # 构建事件信息
+        event_info = []
+        event_info.append(f"【邮箱事件】")  # 使用统一的格式
+        event_info.append(f"名称：{sender_name_tw}的信件")  # 添加名称行以统一格式
+        event_info.append(f"标题：{title_tw}")
+        event_info.append(f"描述：{desc_tw}")
+        event_info.append(f"持续时间：{start_date.strftime('%Y-%m-%d')} 至 {end_date.strftime('%Y-%m-%d')}")
+        
+        if rewards:
+            event_info.append("奖励：")
+            event_info.extend([f"- {reward}" for reward in rewards])
+        
+        mail_events.append("\n".join(event_info))
+    
+    return mail_events
+
+
 def get_calendar_events(data, target_month, current_year):
     """获取一般活动信息"""
     calendar_events_with_date = []
@@ -595,8 +725,14 @@ def get_calendar_events(data, target_month, current_year):
     
     for schedule in data["localization_schedule"]["json"]:
         schedule_key = schedule.get("schedule_key", "")
+        # 排除特殊事件和主要活动
         if not schedule_key.startswith("Calender_") or \
-           schedule_key.startswith("Calender_SingleRaid_"):
+           schedule_key.startswith("Calender_SingleRaid_") or \
+           schedule_key.startswith("Calender_EdenAlliance_") or \
+           schedule_key.startswith("Calender_PickUp_") or \
+           schedule_key.startswith("Calender_WorldBoss_") or \
+           schedule_key.startswith("Calender_GuildRaid_") or \
+           schedule_key.endswith("_Main"):
             continue
             
         start_date = schedule.get("start_date")
@@ -642,133 +778,6 @@ def get_calendar_events(data, target_month, current_year):
     
     calendar_events_with_date.sort(key=lambda x: x[0])
     return [event_info for _, event_info in calendar_events_with_date]
-
-def get_eden_alliance_events(data, target_month, current_year):
-    """获取联合作战事件信息
-    
-    Args:
-        data: JSON数据字典
-        target_month: 目标月份
-        current_year: 当前年份
-    
-    Returns:
-        list: 联合作战事件信息列表
-    """
-    eden_events = []
-    now = datetime.now()
-    # 从LocalizationSchedule中获取所有联合作战事件
-    for schedule in data["localization_schedule"]["json"]:
-        if not schedule.get("schedule_key", "").startswith("Calender_EdenAlliance_"):
-            continue
-            
-        start_date = schedule.get("start_date")
-        end_date = schedule.get("end_date")
-        
-        if not (start_date and end_date):
-            continue
-            
-        # 转换日期
-        start_date = datetime.strptime(start_date, "%Y-%m-%d %H:%M:%S")
-        end_date = datetime.strptime(end_date, "%Y-%m-%d %H:%M:%S")
-
-        # 检查是否在目标月份内
-        is_in_month = (
-            (start_date.year == current_year and start_date.month == target_month) or
-            (end_date.year == current_year and end_date.month == target_month)
-        ) and end_date >= now
-        
-        if not is_in_month:
-            continue
-            
-        # 获取联合作战名称
-        schedule_key = schedule["schedule_key"]
-        eden_name_tw = ""
-        eden_name_cn = ""
-        
-        # 从EdenAlliance中获取name_sno
-        for eden in data["event_calender"]["json"]:
-            if eden.get("schedule_key") == schedule_key:
-                name_sno = eden.get("name_sno")
-                if name_sno:
-                    # 从StringUI中获取名称
-                    for string in data["string_ui"]["json"]:
-                        if string["no"] == name_sno:
-                            eden_name_tw = string.get("zh_tw", "")
-                            eden_name_cn = string.get("zh_cn", "")
-                            break
-                break
-        if eden_name_tw:
-            event_info = []
-            event_info.append(f"联合作战")
-            event_info.append(f"名称：{eden_name_tw}")
-            event_info.append(f"持续时间：{start_date.strftime('%Y-%m-%d')} 至 {end_date.strftime('%Y-%m-%d')}")
-            eden_events.append("\n".join(event_info))
-    
-    return eden_events
-
-def get_raid_events(data, target_month, current_year):
-    """获取恶灵讨伐事件信息
-    
-    Args:
-        data: JSON数据字典
-        target_month: 目标月份
-        current_year: 当前年份
-    
-    Returns:
-        list: 讨伐事件信息列表
-    """
-    raid_events = []
-    
-    # 从LocalizationSchedule中获取所有讨伐事件
-    for schedule in data["localization_schedule"]["json"]:
-        if not schedule.get("schedule_key", "").startswith("Calender_SingleRaid_"):
-            continue
-            
-        start_date = schedule.get("start_date")
-        end_date = schedule.get("end_date")
-        now = datetime.now()
-        if not (start_date and end_date):
-            continue
-            
-        # 转换日期
-        start_date = datetime.strptime(start_date, "%Y-%m-%d %H:%M:%S")
-        end_date = datetime.strptime(end_date, "%Y-%m-%d %H:%M:%S")
-        
-        # 检查是否在目标月份内
-        is_in_month = (
-            (start_date.year == current_year and start_date.month == target_month) or
-            (end_date.year == current_year and end_date.month == target_month)
-        ) and end_date >= now
-
-        if not is_in_month:
-            continue
-            
-        # 获取讨伐名称
-        schedule_key = schedule["schedule_key"]
-        raid_name_tw = ""
-        raid_name_cn = ""
-        
-        # 从EventCalender中获取name_sno
-        for event in data["event_calender"]["json"]:
-            if event.get("schedule_key") == schedule_key:
-                name_sno = event.get("name_sno")
-                if name_sno:
-                    # 从StringUI中获取名称
-                    for string in data["string_ui"]["json"]:
-                        if string["no"] == name_sno:
-                            raid_name_tw = string.get("zh_tw", "")
-                            raid_name_cn = string.get("zh_cn", "")
-                            break
-                break
-        
-        if raid_name_tw:
-            event_info = []
-            event_info.append(f"恶灵讨伐")
-            event_info.append(f"名称：{raid_name_tw}")
-            event_info.append(f"持续时间：{start_date.strftime('%Y-%m-%d')} 至 {end_date.strftime('%Y-%m-%d')}")
-            raid_events.append("\n".join(event_info))
-    
-    return raid_events
 
 def get_item_name(data, item_no):
     """获取物品名称"""
@@ -1501,35 +1510,74 @@ async def generate_timeline_html(month: int, events: list) -> str:
                 display: inline-block;
                 padding: 4px 12px;
                 border-radius: 4px;
-                font-size: 14px;
+                font-size: 16px;
                 font-weight: bold;
                 margin-bottom: 10px;
                 color: #fff;
             }}
-            /* 不同类型活动的颜色 */
-            .event.mail::before {{
-                background-color: #2196F3;
+
+            /* 主要活动 - 黄色 */
+            .event.main::before {{
+                background-color: #b61274;
             }}
-            .event.mail .event-type {{
-                background-color: #2196F3;
+            .event.main .event-type {{
+                background-color: #b61274;
             }}
+            
+            /* Pickup - 紫色 */
+            .event.pickup::before {{
+                background-color: #6a1b9a;
+            }}
+            .event.pickup .event-type {{
+                background-color: #6a1b9a;
+            }}
+            
+            /* 恶灵讨伐 - 红色 */
             .event.raid::before {{
-                background-color: #F44336;
+                background-color: #c62828;
             }}
             .event.raid .event-type {{
-                background-color: #F44336;
+                background-color: #c62828;
             }}
+            
+            /* 联合作战 - 绿色 */
             .event.eden::before {{
-                background-color: #4CAF50;
+                background-color: #2e7d32;
             }}
             .event.eden .event-type {{
-                background-color: #4CAF50;
+                background-color: #2e7d32;
             }}
+            
+            /* 世界Boss - 橙色 */
+            .event.worldboss::before {{
+                background-color: #e65100;
+            }}
+            .event.worldboss .event-type {{
+                background-color: #e65100;
+            }}
+            
+            /* 工会突袭 - 棕色 */
+            .event.guildraid::before {{
+                background-color: #4e342e;
+            }}
+            .event.guildraid .event-type {{
+                background-color: #4e342e;
+            }}
+            
+            /* 邮箱事件 - 青色 */
+            .event.mail::before {{
+                background-color: #00838f;
+            }}
+            .event.mail .event-type {{
+                background-color: #00838f;
+            }}
+            
+            /* 一般活动 - 深灰色 */
             .event.calendar::before {{
-                background-color: #FF9800;
+                background-color: #37474f;
             }}
             .event.calendar .event-type {{
-                background-color: #FF9800;
+                background-color: #37474f;
             }}
             .event-content {{
                 color: #333;
@@ -1583,15 +1631,25 @@ def format_event_content(event: str) -> str:
     lines = event.split('\n')
     filtered_lines = []
     for line in lines:
-        # 跳过类型标记行和名称行
-        if any(marker in line for marker in ["活动", "邮箱事件", "恶灵讨伐", "联合作战"]) or line.startswith("名称："):
+        if any(marker in line for marker in [
+            "主要活动",
+            "活动", 
+            "邮箱事件", 
+            "恶灵讨伐", 
+            "联合作战", 
+            "Pickup", 
+            "世界Boss", 
+            "工会突袭"
+        ]) or line.startswith("名称："):
             continue
         filtered_lines.append(line)
     return '\n'.join(filtered_lines)
 
 def get_event_type_class(event: str) -> str:
     """根据事件内容返回对应的CSS类名"""
-    if "活动" in event:
+    if "主要活动" in event:
+        return "main"
+    elif "活动" in event:
         return "calendar"
     elif "邮箱事件" in event:
         return "mail"
@@ -1599,6 +1657,12 @@ def get_event_type_class(event: str) -> str:
         return "raid"
     elif "联合作战" in event:
         return "eden"
+    elif "Pickup" in event:
+        return "pickup"
+    elif "世界Boss" in event:
+        return "worldboss"
+    elif "工会突袭" in event:
+        return "guildraid"
     return "calendar"
 
 
@@ -2228,9 +2292,9 @@ def format_story_info(episode_info, endings):
 
     # 合并所有结局信息
     result = ["好感故事攻略："]
-    result.extend(["\n"] + good_end)
-    result.extend(["\n"] + normal_end)
-    result.extend(["\n"] + bad_end)
+    result.extend([""] + good_end)
+    result.extend([""] + normal_end)
+    result.extend([""] + bad_end)
     
     return "\n".join(result)
 
@@ -2541,7 +2605,7 @@ async def handle_hero_info(bot: Bot, event: Event, args: Message = CommandArg())
 隸屬：{get_string_char(data, hero_desc.get("union_sno", 0))[0] if hero_desc else "???"}
 身高：{hero_desc.get("height", "???") if hero_desc else "???"}cm
 體重：{hero_desc.get("weight", "???") if hero_desc else "???"}kg
-生日：{str(hero_desc.get("birthday", "???"))[:1] if hero_desc else "???"}.{str(hero_desc.get("birthday", "???"))[1:] if hero_desc and hero_desc.get("birthday") else "???"}
+生日：{str(hero_desc.get("birthday", "???"))[:2] if hero_desc else "???"}.{str(hero_desc.get("birthday", "???"))[2:] if hero_desc and hero_desc.get("birthday") else "???"}
 星座：{get_string_char(data, hero_desc.get("constellation_sno", 0))[0] if hero_desc else "???"}
 興趣：{get_string_char(data, hero_desc.get("hobby_sno", 0))[0] if hero_desc else "???"}
 特殊專長：{get_string_char(data, hero_desc.get("speciality_sno", 0))[0] if hero_desc else "???"}
@@ -3006,6 +3070,8 @@ async def handle_stage_info(bot: Bot, event: Event, args: Message = CommandArg()
             f"函数名称: {error_location.name}\n"
             f"问题代码: {error_location.line}\n"
         )
+    
+
 @es_month.handle()
 async def handle_es_month(bot: Bot, event: Event):
     try:
@@ -3026,73 +3092,34 @@ async def handle_es_month(bot: Bot, event: Event):
         
         # 收集指定月份的事件
         month_events = []
-        
-        # 查找所有在指定月份内的邮件事件
-        for mail in data["message_mail"]["json"]:
-            start_date = mail.get("start_date")
-            end_date = mail.get("end_date")
-            
-            if start_date and end_date:
-                # 将日期字符串转换为datetime对象
-                start_date = datetime.strptime(start_date, "%Y-%m-%d")
-                end_date = datetime.strptime(end_date, "%Y-%m-%d")
-                now = datetime.now()
-                # 检查事件是否在目标月份内
-                # 事件的开始日期或结束日期在目标月份内
-                is_in_month = (
-                    (start_date.year == current_year and start_date.month == target_month) or
-                    (end_date.year == current_year and end_date.month == target_month)
-                ) and end_date >= now
-                
-                if is_in_month:
-                    event_info = []
-                    
-                    # 获取发送者名称
-                    sender_name_tw = "未知"
-                    if sender_sno := mail.get("sender_sno"):
-                        sender_name_tw, sender_name_cn, sender_name_kr, sender_name_en = get_hero_name_by_id(data, sender_sno)
-                    
-                    # 获取标题
-                    title_tw, title_cn, title_kr, title_en = get_string_char(data, mail.get("title_sno", 0)) or "无标题"
-                    
-                    # 获取描述
-                    desc_tw, desc_cn, desc_kr, desc_en = get_string_char(data, mail.get("desc_sno", 0)) or "无描述"
-                    
-                    # 添加基本信息
-                    event_info.append(f"{sender_name_tw}的邮箱事件")
-                    event_info.append(f"标题：{title_tw}")
-                    event_info.append(f"描述：{desc_tw}")
-                    event_info.append(f"持续时间：{mail.get('start_date', '???')} 至 {mail.get('end_date', '???')}")
-                    
-                    # 添加奖励信息
-                    rewards = []
-                    for i in range(1, 5):  # 检查4个奖励位
-                        reward_no_key = f"reward_no{i}"
-                        reward_amount_key = f"reward_amount{i}"
-                        
-                        if reward_no := mail.get(reward_no_key):
-                            amount = mail.get(reward_amount_key, 0)
-                            item_name = get_item_name(data, reward_no)
-                            if item_name and amount:
-                                rewards.append(f"{item_name} x{amount}")
-                    
-                    if rewards:
-                        event_info.append("奖励：")
-                        event_info.extend([f"- {reward}" for reward in rewards])
-                    
-                    month_events.append("\n".join(event_info))
-        
-        # 获取讨伐事件
-        raid_events = get_raid_events(data, target_month, current_year)
-        month_events.extend(raid_events)
 
-        # 获取联合作战事件
-        eden_events = get_eden_alliance_events(data, target_month, current_year)
-        month_events.extend(eden_events)
+        main_events = []
+        for schedule in data["localization_schedule"]["json"]:
+            schedule_key = schedule.get("schedule_key", "")
+            if schedule_key.startswith("Calender_") and schedule_key.endswith("_Main"):
+                prefix = schedule_key
+                main_events.extend(get_schedule_events(data, target_month, current_year,
+                                                    prefix, "主要活动"))
+        month_events.extend(main_events)
+        
+        month_events.extend(get_schedule_events(data, target_month, current_year,
+                                             "Calender_PickUp_", "Pickup"))
+        month_events.extend(get_schedule_events(data, target_month, current_year, 
+                                             "Calender_SingleRaid_", "恶灵讨伐"))
+        month_events.extend(get_schedule_events(data, target_month, current_year,
+                                             "Calender_EdenAlliance_", "联合作战"))
+        month_events.extend(get_schedule_events(data, target_month, current_year,
+                                             "Calender_WorldBoss_", "世界Boss"))
+        month_events.extend(get_schedule_events(data, target_month, current_year,
+                                             "Calender_GuildRaid_", "工会突袭"))
 
         # 获取一般活动事件
         calendar_events = get_calendar_events(data, target_month, current_year)
         month_events.extend(calendar_events)
+
+        # 获取邮箱事件
+        # mail_events = get_mail_events(data, target_month, current_year)
+        # month_events.extend(mail_events)
         
         if month_events:
             # 生成HTML
