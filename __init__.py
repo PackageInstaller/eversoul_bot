@@ -650,7 +650,8 @@ def get_schedule_events(data, target_month, current_year, schedule_prefix, event
             event_info.append(f"【{event_type}】")
             event_info.append(f"名称：{event_name_tw}")
             event_info.append(f"持续时间：{start_date.strftime('%Y-%m-%d')} 至 {end_date.strftime('%Y-%m-%d')}")
-            events.append("\n".join(event_info))
+            # 返回带开始时间的元组
+            events.append((start_date, "\n".join(event_info)))
     
     return events
 
@@ -713,7 +714,7 @@ def get_mail_events(data, target_month, current_year):
             event_info.append("奖励：")
             event_info.extend([f"- {reward}" for reward in rewards])
         
-        mail_events.append("\n".join(event_info))
+        mail_events.append((start_date, "\n".join(event_info)))
     
     return mail_events
 
@@ -1470,6 +1471,46 @@ def format_date_info(release_date):
 
 async def generate_timeline_html(month: int, events: list) -> str:
     """生成时间线HTML"""
+    # 分离特殊活动、一般活动和邮箱事件
+    special_events_with_date = []
+    normal_events = []
+    mail_events_with_date = []
+    
+    for event in events:
+        if isinstance(event, tuple):
+            # 已经带有时间信息的事件
+            start_date, event_text = event
+            if "【邮箱事件】" in event_text:
+                mail_events_with_date.append((start_date, event_text))
+            elif "【活动】" not in event_text:
+                special_events_with_date.append((start_date, event_text))
+        else:
+            # 一般活动
+            if "【活动】" in event:
+                normal_events.append(event)
+            elif "【邮箱事件】" in event:
+                # 解析时间信息
+                lines = event.split('\n')
+                for line in lines:
+                    if "持续时间：" in line:
+                        start_date = datetime.strptime(line.split('至')[0].replace('持续时间：', '').strip(), '%Y-%m-%d')
+                        mail_events_with_date.append((start_date, event))
+                        break
+            else:
+                # 解析其他特殊活动时间信息
+                lines = event.split('\n')
+                for line in lines:
+                    if "持续时间：" in line:
+                        start_date = datetime.strptime(line.split('至')[0].replace('持续时间：', '').strip(), '%Y-%m-%d')
+                        special_events_with_date.append((start_date, event))
+                        break
+    
+    # 按时间排序
+    special_events_with_date.sort(key=lambda x: x[0])
+    mail_events_with_date.sort(key=lambda x: x[0])
+    special_events = [event for _, event in special_events_with_date]
+    mail_events = [event for _, event in mail_events_with_date]
+    
     html = f"""
     <!DOCTYPE html>
     <html>
@@ -1482,13 +1523,32 @@ async def generate_timeline_html(month: int, events: list) -> str:
                 background-color: #ffffff;
             }}
             .timeline-container {{
-                max-width: 800px;
+                max-width: 1600px;
                 margin: 0 auto;
+                display: flex;
+                flex-direction: column;
             }}
             .title {{
                 color: #333;
                 font-size: 24px;
                 margin-bottom: 30px;
+                text-align: center;
+            }}
+            .content-container {{
+                display: flex;
+                gap: 20px;
+                justify-content: center;
+            }}
+            .column {{
+                flex: 1;
+                max-width: 520px;  /* 调整每列的最大宽度 */
+            }}
+            .column-title {{
+                color: #333;
+                font-size: 18px;
+                margin-bottom: 20px;
+                padding-bottom: 10px;
+                border-bottom: 2px solid #eee;
             }}
             .event {{
                 margin-bottom: 20px;
@@ -1516,7 +1576,7 @@ async def generate_timeline_html(month: int, events: list) -> str:
                 color: #fff;
             }}
 
-            /* 主要活动 - 黄色 */
+            /* 主要活动 - 玫瑰红 */
             .event.main::before {{
                 background-color: #b61274;
             }}
@@ -1590,12 +1650,35 @@ async def generate_timeline_html(month: int, events: list) -> str:
     <body>
         <div class="timeline-container">
             <div class="title">{month}月份活动时间线</div>
-            {''.join([f'''
-            <div class="event {get_event_type_class(event)}">
-                <div class="event-type">{get_event_name(event)}</div>
-                <div class="event-content">{format_event_content(event)}</div>
+            <div class="content-container">
+                <div class="column">
+                    <div class="column-title">特殊活动</div>
+                    {''.join([f'''
+                    <div class="event {get_event_type_class(event)}">
+                        <div class="event-type">{get_event_name(event)}</div>
+                        <div class="event-content">{format_event_content(event)}</div>
+                    </div>
+                    ''' for event in special_events])}
+                </div>
+                <div class="column">
+                    <div class="column-title">一般活动</div>
+                    {''.join([f'''
+                    <div class="event {get_event_type_class(event)}">
+                        <div class="event-type">{get_event_name(event)}</div>
+                        <div class="event-content">{format_event_content(event)}</div>
+                    </div>
+                    ''' for event in normal_events])}
+                </div>
+                <div class="column">
+                    <div class="column-title">邮箱事件</div>
+                    {''.join([f'''
+                    <div class="event {get_event_type_class(event)}">
+                        <div class="event-type">{get_event_name(event)}</div>
+                        <div class="event-content">{format_event_content(event)}</div>
+                    </div>
+                    ''' for event in mail_events])}
+                </div>
             </div>
-            ''' for event in events])}
         </div>
     </body>
     </html>
@@ -1608,10 +1691,12 @@ def get_event_name(event: str) -> str:
     lines = event.split('\n')
     
     # 检查是否是邮件事件
-    if lines and "邮箱事件" in lines[0]:
-        # 从第一行提取发送者名称
-        sender = lines[0].replace("的邮箱事件", "").strip()
-        return sender
+    if lines and "【邮箱事件】" in lines[0]:
+        # 从名称行提取发送者名称
+        for line in lines:
+            if line.startswith("名称："):
+                name = line.replace("名称：", "").replace("的信件", "").strip()
+                return name
     
     # 其他类型的活动
     for line in lines:
@@ -3118,36 +3203,29 @@ async def handle_es_month(bot: Bot, event: Event):
         month_events.extend(calendar_events)
 
         # 获取邮箱事件
-        # mail_events = get_mail_events(data, target_month, current_year)
-        # month_events.extend(mail_events)
+        mail_events = get_mail_events(data, target_month, current_year)
+        month_events.extend(mail_events)
         
         if month_events:
             # 生成HTML
             html = await generate_timeline_html(target_month, month_events)
-            # 先转换为PNG图片
+            
+            # 只使用基本必需的参数
             png_pic = await html_to_pic(
                 html, 
-                viewport={"width": 1000, "height": 10}
+                viewport={"width": 1800, "height": 10}
             )
             
-            # 将bytes转换为PIL Image
-            img = Image.open(io.BytesIO(png_pic))
-            # 准备一个bytes buffer来存储webp
-            webp_buffer = io.BytesIO()
-            # 保存为webp格式，设置质量为90%
-            img.save(webp_buffer, format="WEBP", quality=90)
-            # 获取bytes数据
-            webp_pic = webp_buffer.getvalue()
-            # 发送图片
+            # 直接发送bytes数据
             if isinstance(event, GroupMessageEvent):
                 await bot.send_group_msg(
                     group_id=event.group_id,
-                    message=MessageSegment.image(webp_pic)
+                    message=MessageSegment.image(png_pic)
                 )
             else:
                 await bot.send_private_msg(
                     user_id=event.user_id,
-                    message=MessageSegment.image(webp_pic)
+                    message=MessageSegment.image(png_pic)
                 )
         else:
             await es_month.finish(f"{target_month}月份没有事件哦~")
