@@ -2545,6 +2545,7 @@ async def handle_es_help(bot: Bot, event: Event):
     pic = await html_to_pic(html, viewport={"width": 800, "height": 10})
     await es_help.finish(MessageSegment.image(pic))
 
+
 @es_hero_info.handle()
 async def handle_hero_info(bot: Bot, event: Event, args: Message = CommandArg()):
     try:
@@ -2677,7 +2678,7 @@ async def handle_hero_info(bot: Bot, event: Event, args: Message = CommandArg())
             
         # 繁体中文版本
         basic_info_msg = []
-        portrait_path = get_character_portrait(data, hero_id, hero_name_en)
+        portrait_path = get_character_portrait(data, hero_id, hero_name_en) # 获取立绘路径
         if portrait_path:
             basic_info_msg.append(MessageSegment.image(f"file:///{str(portrait_path.absolute())}"))
         basic_info_tw = f"""
@@ -2740,7 +2741,7 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
             messages.append("无好感故事选项攻略")
         
 
-         # 获取角色关键字信息
+        # 获取角色关键字信息
         messages.append("【角色关键字】")
         
         # 获取所有关键字
@@ -2921,9 +2922,9 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
                 
                 # 对效果进行分类
                 for desc_tw, desc_cn, desc_kr, desc_en in skill_descriptions:
-                    if "主要伙伴" in desc_cn:  # 改为检查繁体中文描述
+                    if "主要伙伴" in desc_cn:
                         main_effects.append(desc_tw.replace("主要夥伴：", ""))
-                    elif "辅助伙伴" in desc_cn:  # 改为检查繁体中文描述
+                    elif "辅助伙伴" in desc_cn:
                         support_effects.append(desc_tw.replace("輔助夥伴：", ""))
                 
                 # 如果有主要效果，添加主要效果部分
@@ -3023,6 +3024,8 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
             f"函数名称: {error_location.name}\n"
             f"问题代码: {error_location.line}\n"
         )
+        await es_hero_info.finish(f"处理角色信息时发生错误: {str(e)}")
+
 
 @es_stage_info.handle()
 async def handle_stage_info(bot: Bot, event: Event, args: Message = CommandArg()):
@@ -3155,7 +3158,8 @@ async def handle_stage_info(bot: Bot, event: Event, args: Message = CommandArg()
             f"函数名称: {error_location.name}\n"
             f"问题代码: {error_location.line}\n"
         )
-    
+        await es_stage_info.finish(f"处理关卡信息时发生错误: {str(e)}")
+
 
 @es_month.handle()
 async def handle_es_month(bot: Bot, event: Event):
@@ -3240,6 +3244,8 @@ async def handle_es_month(bot: Bot, event: Event):
             f"函数名称: {error_location.name}\n"
             f"问题代码: {error_location.line}\n"
         )
+        await es_month.finish(f"处理月度事件查询时发生错误: {str(e)}")
+
 
 @es_stats.handle()
 async def handle_es_stats(bot: Bot, event: Event):
@@ -3343,6 +3349,8 @@ async def handle_es_stats(bot: Bot, event: Event):
             f"函数名称: {error_location.name}\n"
             f"问题代码: {error_location.line}\n"
         )
+        await es_stats.finish(f"处理{stat_type}排行时发生错误: {str(e)}")
+
 
 @es_level_cost.handle()
 async def handle_level_cost(bot: Bot, event: Event, matched: Tuple[Any, ...] = RegexGroup()):
@@ -3427,6 +3435,8 @@ async def handle_level_cost(bot: Bot, event: Event, matched: Tuple[Any, ...] = R
             f"函数名称: {error_location.name}\n"
             f"问题代码: {error_location.line}\n"
         )
+        await es_level_cost.finish(f"处理升级消耗查询时发生错误: {str(e)}")
+
 
 @es_ark_info.handle()
 async def handle_ark_info(bot: Bot, event: Event, matched: Tuple[Any, ...] = RegexGroup()):
@@ -3560,6 +3570,7 @@ async def handle_ark_info(bot: Bot, event: Event, matched: Tuple[Any, ...] = Reg
             f"函数名称: {error_location.name}\n"
             f"问题代码: {error_location.line}\n"
         )
+        await es_ark_info.finish(f"处理方舟等级信息时发生错误: {str(e)}")
 
 
 @es_gate.handle()
@@ -3732,6 +3743,8 @@ async def handle_gate_info(bot: Bot, event: Event, matched: Tuple[Any, ...] = Re
             f"函数名称: {error_location.name}\n"
             f"问题代码: {error_location.line}\n"
         )
+        await es_gate.finish(f"处理传送门信息时发生错误: {str(e)}")
+
 
 @es_cash_info.handle()
 async def handle_cash_info(bot: Bot, event: Event, args: Message = CommandArg()):
@@ -3926,6 +3939,8 @@ async def handle_cash_info(bot: Bot, event: Event, args: Message = CommandArg())
             f"函数名称: {error_location.name}\n"
             f"问题代码: {error_location.line}\n"
         )
+        await es_cash_info.finish(f"处理突发礼包信息时发生错误: {str(e)}")
+
 
 @es_tier_info.handle()
 async def handle_tier_info(bot: Bot, event: Event, args: Message = CommandArg()):
@@ -4138,6 +4153,8 @@ async def handle_tier_info(bot: Bot, event: Event, args: Message = CommandArg())
             f"函数名称: {error_location.name}\n"
             f"问题代码: {error_location.line}\n"
         )
+        await es_tier_info.finish(f"处理礼品信息时发生错误: {str(e)}")
+
 
 @es_potential_info.handle()
 async def handle_potential_info(bot: Bot, event: Event):
@@ -4159,6 +4176,7 @@ async def handle_potential_info(bot: Bot, event: Event):
             f"函数名称: {error_location.name}\n"
             f"问题代码: {error_location.line}\n"
         )
+        await es_potential_info.finish(f"处理潜能信息时发生错误: {str(e)}")
 
 
 @es_hero_list.handle()
@@ -4249,6 +4267,7 @@ async def handle_hero_list(bot: Bot, event: Event):
             f"函数名称: {error_location.name}\n"
             f"问题代码: {error_location.line}\n"
         )
+        await es_hero_list.finish(f"处理角色列表时发生错误: {str(e)}")
         
 @es_avatar_frame.handle()
 async def handle_avatar_frame(bot: Bot, event: Event):
@@ -4333,7 +4352,7 @@ async def handle_avatar_frame(bot: Bot, event: Event):
         mask = Image.new('L', (512, 512), 0)
         draw = ImageDraw.Draw(mask)
 
-        # 边界点坐标（根据之前找到的点）
+        # 边界点坐标
         boundary_points = [
             (440, 256), (440, 267), (440, 279), (440, 291), (440, 303),
             (440, 315), (440, 328), (440, 342), (440, 357), (440, 372),
@@ -4403,10 +4422,11 @@ async def handle_avatar_frame(bot: Bot, event: Event):
             f"函数名称: {error_location.name}\n"
             f"问题代码: {error_location.line}\n"
         )
-
+        await es_avatar_frame.finish(f"处理头像框时发生错误: {str(e)}")
 
 
 async def run_eversoul(timeout: int = 120) -> Optional[str]:
+    bot = get_bot()
     try:
         
         import os
@@ -4465,14 +4485,6 @@ async def run_eversoul(timeout: int = 120) -> Optional[str]:
             if line:
                 output_lines.append(line)
         
-        # 获取stderr输出
-        stderr_data = await process.stderr.read()
-        if stderr_data:
-            try:
-                stderr_text = stderr_data.decode('utf-8', errors='replace')
-            except Exception as e:
-                pass
-        
         # 确保进程结束
         if process.returncode is None:
             process.terminate()
@@ -4485,7 +4497,15 @@ async def run_eversoul(timeout: int = 120) -> Optional[str]:
 
     except Exception as e:
         import traceback
-        return f"运行程序时发生异常: {type(e).__name__}: {str(e)}\n异常堆栈:\n{traceback.format_exc()}"
+        error_location = traceback.extract_tb(e.__traceback__)[-1]
+        logger.error(
+            f"执行检查更新时发生错误:\n"
+            f"错误类型: {type(e).__name__}\n"
+            f"错误信息: {str(e)}\n"
+            f"函数名称: {error_location.name}\n"
+            f"问题代码: {error_location.line}\n"
+        )
+        await bot.finish(f"执行检查更新时发生错误: {str(e)}")
 
 
 async def check_update_background(group_id: int, event: GroupMessageEvent):
@@ -4537,10 +4557,17 @@ async def check_update_background(group_id: int, event: GroupMessageEvent):
                 user_id=event.user_id,
                 messages=forward_msgs
             )
-
     except Exception as e:
-        error_msg = f"执行更新检查时发生错误:\n错误类型: {type(e).__name__}\n错误信息: {str(e)}"
-        await bot.send_group_msg(group_id=group_id, message=error_msg)
+        import traceback
+        error_location = traceback.extract_tb(e.__traceback__)[-1]
+        logger.error(
+            f"检查更新时发生错误:\n"
+            f"错误类型: {type(e).__name__}\n"
+            f"错误信息: {str(e)}\n"
+            f"函数名称: {error_location.name}\n"
+            f"问题代码: {error_location.line}\n"
+        )
+        await bot.finish(f"检查更新时发生错误: {str(e)}")
 
 @es_check_update.handle()
 async def handle_es_check_update(event: GroupMessageEvent):
@@ -4549,7 +4576,16 @@ async def handle_es_check_update(event: GroupMessageEvent):
     try:
         await check_update_background(group_id, event)
     except Exception as e:
-        await es_check_update.finish(f"更新检查执行失败: {str(e)}")
+        import traceback
+        error_location = traceback.extract_tb(e.__traceback__)[-1]
+        logger.error(
+            f"检查更新时发生错误:\n"
+            f"错误类型: {type(e).__name__}\n"
+            f"错误信息: {str(e)}\n"
+            f"函数名称: {error_location.name}\n"
+            f"问题代码: {error_location.line}\n"
+        )
+        await es_check_update.finish(f"检查更新时发生错误: {str(e)}")
 
 
 # 初始化全局配置
