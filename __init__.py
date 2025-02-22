@@ -243,7 +243,7 @@ def load_json_data():
     return data
 
 
-async def generate_ark_level_chart(data: dict) -> str:
+async def generate_ark_level_chart(data: dict) -> MessageSegment:
     """生成主方舟等级与超频等级关系图"""
     try:
         # 收集数据点
@@ -273,27 +273,27 @@ async def generate_ark_level_chart(data: dict) -> str:
         # 设置x轴刻度
         plt.xticks(range(0, max(levels)+1, 50))
         
-        # 添加关键点标注（使用自定义字体）
+        # 添加关键点标注
         plt.annotate(f'最大值: ({max(levels)}, {max(overclock_levels)})',
                     xy=(max(levels), max(overclock_levels)),
                     xytext=(10, 10),
                     textcoords='offset points',
                     fontproperties=custom_font)
         
-        # 保存图片到内存
         buffer = BytesIO()
         plt.savefig(buffer, format='png', dpi=300, bbox_inches='tight')
         plt.close()
         
-        # 转换为base64
+        # 获取bytes数据
         buffer.seek(0)
-        image_base64 = base64.b64encode(buffer.getvalue()).decode()
+        image_bytes = buffer.getvalue()
         
-        return f"[CQ:image,file=base64://{image_base64}]"
+        # 返回MessageSegment对象
+        return MessageSegment.image(image_bytes)
         
     except Exception as e:
         logger.error(f"生成统计图时发生错误: {str(e)}")
-        return "生成统计图失败"
+        return MessageSegment.text("生成统计图失败")
 
 def format_number(num):
     '''
@@ -3465,19 +3465,22 @@ async def handle_ark_info(bot: Bot, event: Event, matched: Tuple[Any, ...] = Reg
                 if core_type in ark_types:
                     ark_types[core_type].append(ark)
         
-        messages = [f"方舟等级 {target_level} 信息："]
-        chart_msg = await generate_ark_level_chart(data)
+        messages = []
+        # 添加标题信息
+        title_msg = [f"方舟等级 {target_level} 信息："]
+        messages.append("\n".join(title_msg))
         
         # 处理每种类型的方舟
         for core_type, arks in ark_types.items():
+            if not arks:
+                continue
+                
             # 获取方舟类型名称
             type_name = next((s.get("zh_tw", "未知类型") for s in data["string_system"]["json"] 
                             if s["no"] == core_type), "未知类型")
             
-            if not arks:
-                continue
-                
-            messages.append(f"\n【{type_name}】")
+            ark_msg = []
+            ark_msg.append(f"\n【{type_name}】")
             
             for ark in arks:
                 # 获取升级材料信息
@@ -3488,7 +3491,7 @@ async def handle_ark_info(bot: Bot, event: Event, matched: Tuple[Any, ...] = Reg
                                        if s["no"] == item.get("name_sno")), "未知材料")
                         break
                 
-                messages.append(f"升级消耗：{item_name} x{ark.get('pay_amount', 0)}")
+                ark_msg.append(f"升级消耗：{item_name} x{ark.get('pay_amount', 0)}")
                 
                 # 获取基础属性加成
                 if buff_no := ark.get("contents_buff_no"):
@@ -3496,16 +3499,15 @@ async def handle_ark_info(bot: Bot, event: Event, matched: Tuple[Any, ...] = Reg
                     for buff in data["contents_buff"]["json"]:
                         if buff.get("no") == buff_no:
                             found_buff = True
-                            messages.append("基础属性加成：")
+                            ark_msg.append("基础属性加成：")
                             for key, value in buff.items():
                                 if key in stat_names and value != 0:
-                                    # 检查是否为百分比属性
                                     if key.endswith('_rate'):
-                                        messages.append(f"· {stat_names[key]}：{value*100:.2f}%")
+                                        ark_msg.append(f"· {stat_names[key]}：{value*100:.2f}%")
                                     else:
-                                        messages.append(f"· {stat_names[key]}：{format_number(value)}")
+                                        ark_msg.append(f"· {stat_names[key]}：{format_number(value)}")
                     if not found_buff:
-                        messages.append("基础属性加成：数据未找到")
+                        ark_msg.append("基础属性加成：数据未找到")
                 
                 # 获取特殊属性加成
                 if sp_buff_value := ark.get("sp_buff_value02"):
@@ -3513,38 +3515,43 @@ async def handle_ark_info(bot: Bot, event: Event, matched: Tuple[Any, ...] = Reg
                     for buff in data["contents_buff"]["json"]:
                         if buff.get("no") == int(sp_buff_value):
                             found_buff = True
-                            messages.append("特殊属性加成：")
+                            ark_msg.append("特殊属性加成：")
                             for key, value in buff.items():
                                 if key in stat_names and value != 0:
-                                    # 所有特殊属性都是百分比
-                                    messages.append(f"· {stat_names[key]}：{value*100:.2f}%")
+                                    ark_msg.append(f"· {stat_names[key]}：{value*100:.2f}%")
                     if not found_buff:
-                        messages.append("特殊属性加成：数据未找到")
+                        ark_msg.append("特殊属性加成：数据未找到")
 
                 # 获取超频信息
                 if overclock_max := ark.get("overclock_max_level"):
-                    messages.append(f"\n超频信息：")
-                    # 计算超频消耗
+                    ark_msg.append(f"\n超频信息：")
                     total_cost = 0
                     for overclock in data["ark_overclock"]["json"]:
                         if overclock.get("overclock_level", 0) <= overclock_max:
                             total_cost += overclock.get("mana_crystal", 0)
-                    messages.append(f"最大超频等级：{overclock_max}")
-                    messages.append(f"总超频消耗：{format_number(total_cost)} 魔力水晶")
+                    ark_msg.append(f"最大超频等级：{overclock_max}")
+                    ark_msg.append(f"总超频消耗：{format_number(total_cost)} 魔力水晶")
+            
+            messages.append("\n".join(ark_msg))
         
-        # 添加统计图到消息列表
-        messages.append("\n【等级关系统计图】")
-        messages.append(chart_msg)
+        # 添加统计图
+        chart_msg = []
+        chart_msg.append("\n【等级关系统计图】")
+        chart = await generate_ark_level_chart(data)
+        chart_msg.append(chart)
+        messages.append("\n".join(str(x) for x in chart_msg))
         
-        # 发送合并转发消息
-        forward_msgs = [{
-            "type": "node",
-            "data": {
-                "name": "EverSoul Ark Info",
-                "uin": bot.self_id,
-                "content": "\n".join(messages)
-            }
-        }]
+        # 构建转发消息
+        forward_msgs = []
+        for msg in messages:
+            forward_msgs.append({
+                "type": "node",
+                "data": {
+                    "name": "EverSoul Ark Info",
+                    "uin": bot.self_id,
+                    "content": msg
+                }
+            })
         
         # 发送消息
         if isinstance(event, GroupMessageEvent):
