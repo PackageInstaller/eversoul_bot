@@ -1,12 +1,11 @@
 import ast
 import os
-import io
 import re
 import json
 import yaml
 import httpx
-import base64
 import asyncio
+import subprocess
 import time as time_module
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
@@ -16,6 +15,7 @@ from io import BytesIO
 from nonebot.plugin import PluginMetadata
 from nonebot import require, on_command, on_regex, get_bot
 from datetime import datetime
+from nonebot.exception import FinishedException
 from nonebot.permission import SUPERUSER
 from PIL import Image, ImageDraw
 from difflib import get_close_matches
@@ -295,6 +295,7 @@ async def generate_ark_level_chart(data: dict) -> MessageSegment:
         logger.error(f"生成统计图时发生错误: {str(e)}")
         return MessageSegment.text("生成统计图失败")
 
+
 def format_number(num):
     '''
     递归实现，精确为最大单位值 + 小数点后一位
@@ -321,6 +322,7 @@ def format_number(num):
     if level >= len(units):
         level = len(units) - 1
     return f"{round(num, 1)}{units[level]}"
+
 
 def clean_color_tags(text):
     """清理颜色标签"""
@@ -360,7 +362,6 @@ def get_keyword_source(data: dict, source_sno: int, details: int, hero_no: int =
     
     source = next((s.get("zh_tw", "") for s in data["string_ui"]["json"] 
                   if s["no"] == source_sno), "")
-
     
     if not source:
         return ""
@@ -3012,19 +3013,19 @@ CV_JP：{get_string_char(data, hero_desc.get("cv_jp_sno", 0))[0] if hero_desc el
                 user_id=event.user_id,
                 messages=forward_msgs
             )
-        await es_hero_info.finish()
-        
-    except ValueError as e:
-        import traceback
-        error_location = traceback.extract_tb(e.__traceback__)[-1]
-        logger.error(
-            f"处理角色信息时发生错误:\n"
-            f"错误类型: {type(e).__name__}\n"
-            f"错误信息: {str(e)}\n"
-            f"函数名称: {error_location.name}\n"
-            f"问题代码: {error_location.line}\n"
-        )
-        await es_hero_info.finish(f"处理角色信息时发生错误: {str(e)}")
+    except Exception as e:
+        if not isinstance(e, FinishedException):
+            import traceback
+            error_location = traceback.extract_tb(e.__traceback__)[-1]
+            logger.error(
+                f"处理角色信息时发生错误:\n"
+                f"错误类型: {type(e).__name__}\n"
+                f"错误信息: {str(e)}\n"
+                f"函数名称: {error_location.name}\n"
+                f"问题代码: {error_location.line}\n"
+                f"错误行号: {error_location.lineno}\n"
+            )
+            await es_hero_info.finish(f"处理角色信息时发生错误: {str(e)}")
 
 
 @es_stage_info.handle()
@@ -3148,17 +3149,20 @@ async def handle_stage_info(bot: Bot, event: Event, args: Message = CommandArg()
                 messages=forward_msgs
             )
             
+
     except Exception as e:
-        import traceback
-        error_location = traceback.extract_tb(e.__traceback__)[-1]
-        logger.error(
-            f"处理关卡信息时发生错误:\n"
-            f"错误类型: {type(e).__name__}\n"
-            f"错误信息: {str(e)}\n"
-            f"函数名称: {error_location.name}\n"
-            f"问题代码: {error_location.line}\n"
-        )
-        await es_stage_info.finish(f"处理关卡信息时发生错误: {str(e)}")
+        if not isinstance(e, FinishedException):
+            import traceback
+            error_location = traceback.extract_tb(e.__traceback__)[-1]
+            logger.error(
+                f"处理关卡信息时发生错误:\n"
+                f"错误类型: {type(e).__name__}\n"
+                f"错误信息: {str(e)}\n"
+                f"函数名称: {error_location.name}\n"
+                f"问题代码: {error_location.line}\n"
+                f"错误行号: {error_location.lineno}\n"
+            )
+            await es_stage_info.finish(f"处理关卡信息时发生错误: {str(e)}")
 
 
 @es_month.handle()
@@ -3235,16 +3239,18 @@ async def handle_es_month(bot: Bot, event: Event):
             await es_month.finish(f"{target_month}月份没有事件哦~")
             
     except Exception as e:
-        import traceback
-        error_location = traceback.extract_tb(e.__traceback__)[-1]
-        logger.error(
-            f"处理月度事件查询时发生错误:\n"
-            f"错误类型: {type(e).__name__}\n"
-            f"错误信息: {str(e)}\n"
-            f"函数名称: {error_location.name}\n"
-            f"问题代码: {error_location.line}\n"
-        )
-        await es_month.finish(f"处理月度事件查询时发生错误: {str(e)}")
+        if not isinstance(e, FinishedException):
+            import traceback
+            error_location = traceback.extract_tb(e.__traceback__)[-1]
+            logger.error(
+                f"处理月度事件查询时发生错误:\n"
+                f"错误类型: {type(e).__name__}\n"
+                f"错误信息: {str(e)}\n"
+                f"函数名称: {error_location.name}\n"
+                f"问题代码: {error_location.line}\n"
+                f"错误行号: {error_location.lineno}\n"
+            )
+            await es_month.finish(f"处理月度事件查询时发生错误: {str(e)}")
 
 
 @es_stats.handle()
@@ -3340,16 +3346,18 @@ async def handle_es_stats(bot: Bot, event: Event):
             )
             
     except Exception as e:
-        import traceback
-        error_location = traceback.extract_tb(e.__traceback__)[-1]
-        logger.error(
-            f"处理{stat_type}排行时发生错误:\n"
-            f"错误类型: {type(e).__name__}\n"
-            f"错误信息: {str(e)}\n"
-            f"函数名称: {error_location.name}\n"
-            f"问题代码: {error_location.line}\n"
-        )
-        await es_stats.finish(f"处理{stat_type}排行时发生错误: {str(e)}")
+        if not isinstance(e, FinishedException):
+            import traceback
+            error_location = traceback.extract_tb(e.__traceback__)[-1]
+            logger.error(
+                f"处理{stat_type}排行时发生错误:\n"
+                f"错误类型: {type(e).__name__}\n"
+                f"错误信息: {str(e)}\n"
+                f"函数名称: {error_location.name}\n"
+                f"问题代码: {error_location.line}\n"
+                f"错误行号: {error_location.lineno}\n"
+            )
+            await es_stats.finish(f"处理{stat_type}排行时发生错误: {str(e)}")
 
 
 @es_level_cost.handle()
@@ -3426,16 +3434,18 @@ async def handle_level_cost(bot: Bot, event: Event, matched: Tuple[Any, ...] = R
             )
             
     except Exception as e:
-        import traceback
-        error_location = traceback.extract_tb(e.__traceback__)[-1]
-        logger.error(
-            f"处理升级消耗查询时发生错误:\n"
-            f"错误类型: {type(e).__name__}\n"
-            f"错误信息: {str(e)}\n"
-            f"函数名称: {error_location.name}\n"
-            f"问题代码: {error_location.line}\n"
-        )
-        await es_level_cost.finish(f"处理升级消耗查询时发生错误: {str(e)}")
+        if not isinstance(e, FinishedException):
+            import traceback
+            error_location = traceback.extract_tb(e.__traceback__)[-1]
+            logger.error(
+                f"处理升级消耗查询时发生错误:\n"
+                f"错误类型: {type(e).__name__}\n"
+                f"错误信息: {str(e)}\n"
+                f"函数名称: {error_location.name}\n"
+                f"问题代码: {error_location.line}\n"
+                f"错误行号: {error_location.lineno}\n"
+            )
+            await es_level_cost.finish(f"处理升级消耗查询时发生错误: {str(e)}")
 
 
 @es_ark_info.handle()
@@ -3567,17 +3577,20 @@ async def handle_ark_info(bot: Bot, event: Event, matched: Tuple[Any, ...] = Reg
                 messages=forward_msgs
             )
             
+
     except Exception as e:
-        import traceback
-        error_location = traceback.extract_tb(e.__traceback__)[-1]
-        logger.error(
-            f"处理方舟等级信息时发生错误:\n"
-            f"错误类型: {type(e).__name__}\n"
-            f"错误信息: {str(e)}\n"
-            f"函数名称: {error_location.name}\n"
-            f"问题代码: {error_location.line}\n"
-        )
-        await es_ark_info.finish(f"处理方舟等级信息时发生错误: {str(e)}")
+        if not isinstance(e, FinishedException):
+            import traceback
+            error_location = traceback.extract_tb(e.__traceback__)[-1]
+            logger.error(
+                f"处理方舟等级信息时发生错误:\n"
+                f"错误类型: {type(e).__name__}\n"
+                f"错误信息: {str(e)}\n"
+                f"函数名称: {error_location.name}\n"
+                f"问题代码: {error_location.line}\n"
+                f"错误行号: {error_location.lineno}\n"
+            )
+            await es_ark_info.finish(f"处理方舟等级信息时发生错误: {str(e)}")
 
 
 @es_gate.handle()
@@ -3740,17 +3753,20 @@ async def handle_gate_info(bot: Bot, event: Event, matched: Tuple[Any, ...] = Re
                 messages=forward_msgs
             )
             
+
     except Exception as e:
-        import traceback
-        error_location = traceback.extract_tb(e.__traceback__)[-1]
-        logger.error(
-            f"处理传送门信息时发生错误:\n"
-            f"错误类型: {type(e).__name__}\n"
-            f"错误信息: {str(e)}\n"
-            f"函数名称: {error_location.name}\n"
-            f"问题代码: {error_location.line}\n"
-        )
-        await es_gate.finish(f"处理传送门信息时发生错误: {str(e)}")
+        if not isinstance(e, FinishedException):
+            import traceback
+            error_location = traceback.extract_tb(e.__traceback__)[-1]
+            logger.error(
+                f"处理传送门信息时发生错误:\n"
+                f"错误类型: {type(e).__name__}\n"
+                f"错误信息: {str(e)}\n"
+                f"函数名称: {error_location.name}\n"
+                f"问题代码: {error_location.line}\n"
+                f"错误行号: {error_location.lineno}\n"
+            )
+            await es_gate.finish(f"处理传送门信息时发生错误: {str(e)}")
 
 
 @es_cash_info.handle()
@@ -3936,17 +3952,20 @@ async def handle_cash_info(bot: Bot, event: Event, args: Message = CommandArg())
                 messages=forward_msgs
             )
             
+
     except Exception as e:
-        import traceback
-        error_location = traceback.extract_tb(e.__traceback__)[-1]
-        logger.error(
-            f"处理突发礼包信息时发生错误:\n"
-            f"错误类型: {type(e).__name__}\n"
-            f"错误信息: {str(e)}\n"
-            f"函数名称: {error_location.name}\n"
-            f"问题代码: {error_location.line}\n"
-        )
-        await es_cash_info.finish(f"处理突发礼包信息时发生错误: {str(e)}")
+        if not isinstance(e, FinishedException):
+            import traceback
+            error_location = traceback.extract_tb(e.__traceback__)[-1]
+            logger.error(
+                f"处理突发礼包信息时发生错误:\n"
+                f"错误类型: {type(e).__name__}\n"
+                f"错误信息: {str(e)}\n"
+                f"函数名称: {error_location.name}\n"
+                f"问题代码: {error_location.line}\n"
+                f"错误行号: {error_location.lineno}\n"
+            )
+            await es_cash_info.finish(f"处理突发礼包信息时发生错误: {str(e)}")
 
 
 @es_tier_info.handle()
@@ -4150,17 +4169,20 @@ async def handle_tier_info(bot: Bot, event: Event, args: Message = CommandArg())
                 messages=forward_msgs
             )
             
+
     except Exception as e:
-        import traceback
-        error_location = traceback.extract_tb(e.__traceback__)[-1]
-        logger.error(
-            f"处理礼品信息时发生错误:\n"
-            f"错误类型: {type(e).__name__}\n"
-            f"错误信息: {str(e)}\n"
-            f"函数名称: {error_location.name}\n"
-            f"问题代码: {error_location.line}\n"
-        )
-        await es_tier_info.finish(f"处理礼品信息时发生错误: {str(e)}")
+        if not isinstance(e, FinishedException):
+            import traceback
+            error_location = traceback.extract_tb(e.__traceback__)[-1]
+            logger.error(
+                f"处理礼品信息时发生错误:\n"
+                f"错误类型: {type(e).__name__}\n"
+                f"错误信息: {str(e)}\n"
+                f"函数名称: {error_location.name}\n"
+                f"问题代码: {error_location.line}\n"
+                f"错误行号: {error_location.lineno}\n"
+            )
+            await es_tier_info.finish(f"处理礼品信息时发生错误: {str(e)}")
 
 
 @es_potential_info.handle()
@@ -4173,17 +4195,20 @@ async def handle_potential_info(bot: Bot, event: Event):
         # 转换为图片
         pic = await html_to_pic(html, viewport={"width": 1000, "height": 10})
         await es_potential_info.finish(MessageSegment.image(pic))
+
     except Exception as e:
-        import traceback
-        error_location = traceback.extract_tb(e.__traceback__)[-1]
-        logger.error(
-            f"处理潜能信息时发生错误:\n"
-            f"错误类型: {type(e).__name__}\n"
-            f"错误信息: {str(e)}\n"
-            f"函数名称: {error_location.name}\n"
-            f"问题代码: {error_location.line}\n"
-        )
-        await es_potential_info.finish(f"处理潜能信息时发生错误: {str(e)}")
+        if not isinstance(e, FinishedException):
+            import traceback
+            error_location = traceback.extract_tb(e.__traceback__)[-1]
+            logger.error(
+                f"处理潜能信息时发生错误:\n"
+                f"错误类型: {type(e).__name__}\n"
+                f"错误信息: {str(e)}\n"
+                f"函数名称: {error_location.name}\n"
+                f"问题代码: {error_location.line}\n"
+                f"错误行号: {error_location.lineno}\n"
+            )
+            await es_potential_info.finish(f"处理潜能信息时发生错误: {str(e)}")
 
 
 @es_hero_list.handle()
@@ -4264,17 +4289,20 @@ async def handle_hero_list(bot: Bot, event: Event):
                 messages=forward_msgs
             )
             
+
     except Exception as e:
-        import traceback
-        error_location = traceback.extract_tb(e.__traceback__)[-1]
-        logger.error(
-            f"处理角色列表时发生错误:\n"
-            f"错误类型: {type(e).__name__}\n"
-            f"错误信息: {str(e)}\n"
-            f"函数名称: {error_location.name}\n"
-            f"问题代码: {error_location.line}\n"
-        )
-        await es_hero_list.finish(f"处理角色列表时发生错误: {str(e)}")
+        if not isinstance(e, FinishedException):
+            import traceback
+            error_location = traceback.extract_tb(e.__traceback__)[-1]
+            logger.error(
+                f"处理角色列表时发生错误:\n"
+                f"错误类型: {type(e).__name__}\n"
+                f"错误信息: {str(e)}\n"
+                f"函数名称: {error_location.name}\n"
+                f"问题代码: {error_location.line}\n"
+                f"错误行号: {error_location.lineno}\n"
+            )
+            await es_hero_list.finish(f"处理角色列表时发生错误: {str(e)}")
         
 @es_avatar_frame.handle()
 async def handle_avatar_frame(bot: Bot, event: Event):
@@ -4419,17 +4447,20 @@ async def handle_avatar_frame(bot: Bot, event: Event):
         # 删除临时文件
         output_path.unlink()
 
+
     except Exception as e:
-        import traceback
-        error_location = traceback.extract_tb(e.__traceback__)[-1]
-        logger.error(
-            f"处理头像框时发生错误:\n"
-            f"错误类型: {type(e).__name__}\n"
-            f"错误信息: {str(e)}\n"
-            f"函数名称: {error_location.name}\n"
-            f"问题代码: {error_location.line}\n"
-        )
-        await es_avatar_frame.finish(f"处理头像框时发生错误: {str(e)}")
+        if not isinstance(e, FinishedException):
+            import traceback
+            error_location = traceback.extract_tb(e.__traceback__)[-1]
+            logger.error(
+                f"处理头像框时发生错误:\n"
+                f"错误类型: {type(e).__name__}\n"
+                f"错误信息: {str(e)}\n"
+                f"函数名称: {error_location.name}\n"
+                f"问题代码: {error_location.line}\n"
+                f"错误行号: {error_location.lineno}\n"
+            )
+            await es_avatar_frame.finish(f"处理头像框时发生错误: {str(e)}")
 
 
 async def run_eversoul(timeout: int = 120) -> Optional[str]:
@@ -4502,24 +4533,27 @@ async def run_eversoul(timeout: int = 120) -> Optional[str]:
         
         return '\n'.join(output_lines) if output_lines else None
 
+
     except Exception as e:
-        import traceback
-        error_location = traceback.extract_tb(e.__traceback__)[-1]
-        logger.error(
-            f"执行检查更新时发生错误:\n"
-            f"错误类型: {type(e).__name__}\n"
-            f"错误信息: {str(e)}\n"
-            f"函数名称: {error_location.name}\n"
-            f"问题代码: {error_location.line}\n"
-        )
-        await bot.finish(f"执行检查更新时发生错误: {str(e)}")
+        if not isinstance(e, FinishedException):
+            import traceback
+            error_location = traceback.extract_tb(e.__traceback__)[-1]
+            logger.error(
+                f"执行检查更新时发生错误:\n"
+                f"错误类型: {type(e).__name__}\n"
+                f"错误信息: {str(e)}\n"
+                f"函数名称: {error_location.name}\n"
+                f"问题代码: {error_location.line}\n"
+                f"错误行号: {error_location.lineno}\n"
+            )
+            await bot.finish(f"执行检查更新时发生错误: {str(e)}")
 
 
 async def check_update_background(group_id: int, event: GroupMessageEvent):
     bot = get_bot()
     try:
         # 发送初始消息并获取消息ID用于后续回复
-        initial_msg = await bot.send_group_msg(group_id=group_id, message="开始检查更新，请稍候...")
+        initial_msg = await bot.send_group_msg(group_id=group_id, message="开始检查更新，请稍候...", reply=True)
         
         output = await run_eversoul()
         
@@ -4527,7 +4561,7 @@ async def check_update_background(group_id: int, event: GroupMessageEvent):
             await bot.send_group_msg(
                 group_id=group_id,
                 message=MessageSegment.reply(initial_msg["message_id"]) + "更新检查执行超时或出现错误，请稍后重试。"
-            )
+            , reply=True)
             return
         
         # 清理ANSI颜色代码
@@ -4538,7 +4572,7 @@ async def check_update_background(group_id: int, event: GroupMessageEvent):
             await bot.send_group_msg(
                 group_id=group_id,
                 message=MessageSegment.reply(initial_msg["message_id"]) + "未获取到更新检查结果，请稍后重试。"
-            )
+            , reply=True)
             return
         
         # 生成单条转发消息
@@ -4564,17 +4598,222 @@ async def check_update_background(group_id: int, event: GroupMessageEvent):
                 user_id=event.user_id,
                 messages=forward_msgs
             )
+            
+        # 检查是否有Git变更并上传
+        try:
+            # 设置Git仓库路径
+            repo_path = Path("/home/rikka/Eversoul")
+            
+            # 检查目录是否存在
+            if not repo_path.exists() or not repo_path.is_dir():
+                await bot.send_group_msg(group_id=group_id, message="错误：Eversoul仓库目录不存在")
+                return
+                
+            # 切换到仓库目录
+            os.chdir(repo_path)
+            
+            # 检查是否有Git变更
+            status_result = subprocess.run(
+                ["git", "status", "--porcelain"], 
+                capture_output=True, 
+                text=True, 
+                check=True
+            )
+            
+            if not status_result.stdout.strip():
+                # 添加到合并转发消息
+                forward_msgs.append({
+                    "type": "node",
+                    "data": {
+                        "name": "EverSoul Git Status",
+                        "uin": bot.self_id,
+                        "content": "检查完成，没有检测到任何变更，无需上传"
+                    }
+                })
+                
+                # 发送更新后的合并转发消息
+                if isinstance(event, GroupMessageEvent):
+                    await bot.call_api(
+                        "send_group_forward_msg",
+                        group_id=event.group_id,
+                        messages=forward_msgs
+                    )
+                else:
+                    await bot.call_api(
+                        "send_private_forward_msg",
+                        user_id=event.user_id,
+                        messages=forward_msgs
+                    )
+                return
+                
+            # 获取变更的文件列表
+            changed_files = status_result.stdout.strip().split('\n')
+            changed_files_count = len(changed_files)
+            
+            # 添加所有变更
+            add_result = subprocess.run(
+                ["git", "add", "."], 
+                capture_output=True, 
+                text=True
+            )
+            
+            if add_result.returncode != 0:
+                forward_msgs.append({
+                    "type": "node",
+                    "data": {
+                        "name": "EverSoul Git Error",
+                        "uin": bot.self_id,
+                        "content": f"添加文件失败：\n{add_result.stderr}"
+                    }
+                })
+                
+                # 发送更新后的合并转发消息
+                if isinstance(event, GroupMessageEvent):
+                    await bot.call_api(
+                        "send_group_forward_msg",
+                        group_id=event.group_id,
+                        messages=forward_msgs
+                    )
+                else:
+                    await bot.call_api(
+                        "send_private_forward_msg",
+                        user_id=event.user_id,
+                        messages=forward_msgs
+                    )
+                return
+                
+            # 提交变更
+            commit_result = subprocess.run(
+                ["git", "commit", "-m", "auto update"], 
+                capture_output=True, 
+                text=True
+            )
+            
+            if commit_result.returncode != 0:
+                forward_msgs.append({
+                    "type": "node",
+                    "data": {
+                        "name": "EverSoul Git Error",
+                        "uin": bot.self_id,
+                        "content": f"提交变更失败：\n{commit_result.stderr}"
+                    }
+                })
+                
+                # 发送更新后的合并转发消息
+                if isinstance(event, GroupMessageEvent):
+                    await bot.call_api(
+                        "send_group_forward_msg",
+                        group_id=event.group_id,
+                        messages=forward_msgs
+                    )
+                else:
+                    await bot.call_api(
+                        "send_private_forward_msg",
+                        user_id=event.user_id,
+                        messages=forward_msgs
+                    )
+                return
+                
+            # 推送到远程仓库
+            push_result = subprocess.run(
+                ["git", "push"], 
+                capture_output=True, 
+                text=True
+            )
+            
+            if push_result.returncode != 0:
+                forward_msgs.append({
+                    "type": "node",
+                    "data": {
+                        "name": "EverSoul Git Error",
+                        "uin": bot.self_id,
+                        "content": f"推送变更失败：\n{push_result.stderr}"
+                    }
+                })
+                
+                # 发送更新后的合并转发消息
+                if isinstance(event, GroupMessageEvent):
+                    await bot.call_api(
+                        "send_group_forward_msg",
+                        group_id=event.group_id,
+                        messages=forward_msgs
+                    )
+                else:
+                    await bot.call_api(
+                        "send_private_forward_msg",
+                        user_id=event.user_id,
+                        messages=forward_msgs
+                    )
+                return
+                
+            # 构建成功消息
+            success_message = f"成功上传更新！\n共更新了 {changed_files_count} 个文件"
+            success_message += "："
+            for file in changed_files:
+                success_message += f"\n- {file.strip()}"
+            
+            # 添加到合并转发消息
+            forward_msgs.append({
+                "type": "node",
+                "data": {
+                    "name": "EverSoul Git Update",
+                    "uin": bot.self_id,
+                    "content": success_message
+                }
+            })
+            
+            # 发送更新后的合并转发消息
+            if isinstance(event, GroupMessageEvent):
+                await bot.call_api(
+                    "send_group_forward_msg",
+                    group_id=event.group_id,
+                    messages=forward_msgs
+                )
+            else:
+                await bot.call_api(
+                    "send_private_forward_msg",
+                    user_id=event.user_id,
+                    messages=forward_msgs
+                )
+        
+            
+        except Exception as e:
+            logger.error(f"上传更新时发生错误: {e}")
+            forward_msgs.append({
+                "type": "node",
+                "data": {
+                    "name": "EverSoul Git Error",
+                    "uin": bot.self_id,
+                    "content": f"上传更新时发生错误: {str(e)}"
+                }
+            })
+            
+            # 发送更新后的合并转发消息
+            if isinstance(event, GroupMessageEvent):
+                await bot.call_api(
+                    "send_group_forward_msg",
+                    group_id=event.group_id,
+                    messages=forward_msgs
+                )
+            else:
+                await bot.call_api(
+                    "send_private_forward_msg",
+                    user_id=event.user_id,
+                    messages=forward_msgs
+                )
+            
     except Exception as e:
-        import traceback
-        error_location = traceback.extract_tb(e.__traceback__)[-1]
-        logger.error(
-            f"检查更新时发生错误:\n"
-            f"错误类型: {type(e).__name__}\n"
-            f"错误信息: {str(e)}\n"
-            f"函数名称: {error_location.name}\n"
-            f"问题代码: {error_location.line}\n"
-        )
-        await bot.finish(f"检查更新时发生错误: {str(e)}")
+        if not isinstance(e, FinishedException):
+            import traceback
+            error_location = traceback.extract_tb(e.__traceback__)[-1]
+            logger.error(
+                f"检查更新时发生错误:\n"
+                f"错误类型: {type(e).__name__}\n"
+                f"错误信息: {str(e)}\n"
+                f"函数名称: {error_location.name}\n"
+                f"问题代码: {error_location.line}\n"
+            )
+            await bot.finish(f"检查更新时发生错误: {str(e)}")
 
 @es_check_update.handle()
 async def handle_es_check_update(event: GroupMessageEvent):
@@ -4582,6 +4821,8 @@ async def handle_es_check_update(event: GroupMessageEvent):
     # 直接等待后台任务完成
     try:
         await check_update_background(group_id, event)
+    except FinishedException:
+        raise
     except Exception as e:
         import traceback
         error_location = traceback.extract_tb(e.__traceback__)[-1]
@@ -4624,16 +4865,19 @@ async def handle_switch_source(event: GroupMessageEvent):
         global alias_map, json_data
         alias_map = load_aliases()
         json_data = load_json_data()
+
     except Exception as e:
-        import traceback
-        error_location = traceback.extract_tb(e.__traceback__)[-1]
-        logger.error(
-            f"切换数据源时发生错误:\n"
-            f"错误类型: {type(e).__name__}\n"
-            f"错误信息: {str(e)}\n"
-            f"函数名称: {error_location.name}\n"
-            f"问题代码: {error_location.line}\n"
-        )
-        await es_switch_source.finish(f"切换数据源时发生错误: {str(e)}")
+        if not isinstance(e, FinishedException):
+            import traceback
+            error_location = traceback.extract_tb(e.__traceback__)[-1]
+            logger.error(
+                f"切换数据源时发生错误:\n"
+                f"错误类型: {type(e).__name__}\n"
+                f"错误信息: {str(e)}\n"
+                f"函数名称: {error_location.name}\n"
+                f"问题代码: {error_location.line}\n"
+                f"错误行号: {error_location.lineno}\n"
+            )
+            await es_switch_source.finish(f"切换数据源时发生错误: {str(e)}")
     
     await es_switch_source.finish(f"已切换到{args}数据源")
