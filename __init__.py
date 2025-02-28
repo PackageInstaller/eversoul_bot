@@ -4584,21 +4584,6 @@ async def check_update_background(group_id: int, event: GroupMessageEvent):
                 "content": clean_output
             }
         }]
-        
-        # 发送合并转发消息
-        if isinstance(event, GroupMessageEvent):
-            await bot.call_api(
-                "send_group_forward_msg",
-                group_id=event.group_id,
-                messages=forward_msgs
-            )
-        else:
-            await bot.call_api(
-                "send_private_forward_msg",
-                user_id=event.user_id,
-                messages=forward_msgs
-            )
-            
         # 检查是否有Git变更并上传
         try:
             # 设置Git仓库路径
@@ -4630,8 +4615,6 @@ async def check_update_background(group_id: int, event: GroupMessageEvent):
                         "content": "检查完成，没有检测到任何变更，无需上传"
                     }
                 })
-                
-                # 发送更新后的合并转发消息
                 if isinstance(event, GroupMessageEvent):
                     await bot.call_api(
                         "send_group_forward_msg",
